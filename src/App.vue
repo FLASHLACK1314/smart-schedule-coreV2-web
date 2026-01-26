@@ -1,16 +1,11 @@
 <script setup lang="ts">
-import HomePage from './components/HomePage.vue'
+// RouterView 会被自动注册，无需显式导入
 </script>
 
 <template>
-  <div id="app">
-    <HomePage />
-  </div>
+  <router-view />
 </template>
 
-<style scoped>
-#app {
-  width: 100%;
-  min-height: 100vh;
-}
+<style>
+/* 全局样式可以在这里定义 */
 </style>
