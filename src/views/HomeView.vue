@@ -68,6 +68,22 @@ const allFeatures: Feature[] = [
   },
   {
     id: 7,
+    title: '学院管理',
+    description: '管理学院组织架构、专业设置和行政配置',
+    icon: '🏛️',
+    color: '#607D8B',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+  },
+  {
+    id: 8,
+    title: '专业管理',
+    description: '管理专业信息、培养方案和专业设置',
+    icon: '📖',
+    color: '#3F51B5',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+  },
+  {
+    id: 9,
     title: '教务管理',
     description: '教务处人员管理、部门配置与权限设置',
     icon: '📋',
@@ -75,7 +91,7 @@ const allFeatures: Feature[] = [
     userTypes: [UserType.SYSTEM_ADMIN],
   },
   {
-    id: 8,
+    id: 10,
     title: '我的课表',
     description: '查看个人课程安排，支持导出和打印',
     icon: '📊',
@@ -138,7 +154,27 @@ const userName = computed(() => {
 
 const handleFeatureClick = (feature: Feature) => {
   console.log('点击功能:', feature.title)
-  // TODO: 根据功能跳转到不同页面
+
+  // 根据功能标题跳转到对应页面
+  const routeMap: Record<string, string> = {
+    教师管理: '/teacher-management',
+    学生管理: '/student-management',
+    教务管理: '/academic-management',
+    学院管理: '/college-management',
+    专业管理: '/major-management',
+    课程管理: '/course-management',
+    教室管理: '/classroom-management',
+    班级管理: '/class-management',
+    智能排课: '/schedule',
+    我的课表: '/my-schedule',
+  }
+
+  const route = routeMap[feature.title]
+  if (route) {
+    router.push(route)
+  } else {
+    console.warn('未找到对应路由:', feature.title)
+  }
 }
 
 /**

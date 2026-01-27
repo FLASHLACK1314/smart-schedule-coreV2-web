@@ -28,6 +28,36 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/teacher-management',
+    name: 'TeacherManagement',
+    component: () => import('@/views/TeacherManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/student-management',
+    name: 'StudentManagement',
+    component: () => import('@/views/StudentManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/academic-management',
+    name: 'AcademicManagement',
+    component: () => import('@/views/AcademicManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/college-management',
+    name: 'CollegeManagement',
+    component: () => import('@/views/CollegeManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/major-management',
+    name: 'MajorManagement',
+    component: () => import('@/views/MajorManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     redirect: '/login',
