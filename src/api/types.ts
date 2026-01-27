@@ -28,35 +28,35 @@ export interface LoginVO {
 
 // 学生用户信息
 export interface StudentUserInfoDTO {
-  studentUuid: string
-  studentId: string
-  studentName: string
-  classUuid: string
+  student_uuid: string
+  student_id: string
+  student_name: string
+  class_uuid: string
 }
 
 // 教师用户信息
 export interface TeacherUserInfoDTO {
-  teacherUuid: string
-  teacherNum: string
-  teacherName: string
+  teacher_uuid: string
+  teacher_num: string
+  teacher_name: string
   title: string
-  maxHoursPerWeek: number
-  isActive: boolean
-  likeTime: string
+  max_hours_per_week: number
+  is_active: boolean
+  like_time: string
 }
 
 // 教务管理员用户信息
 export interface AcademicAdminUserInfoDTO {
-  academicUuid: string
-  departmentUuid: string
-  academicNum: string
-  academicName: string
+  academic_uuid: string
+  department_uuid: string
+  academic_num: string
+  academic_name: string
 }
 
 // 系统管理员用户信息
 export interface SystemAdminUserInfoDTO {
-  adminUuid: string
-  adminUsername: string
+  admin_uuid: string
+  admin_username: string
 }
 
 // 登录响应
@@ -67,4 +67,10 @@ export interface GetUserLoginDTO {
   teacher_info?: TeacherUserInfoDTO
   academic_admin_info?: AcademicAdminUserInfoDTO
   system_admin_info?: SystemAdminUserInfoDTO
+}
+
+// 修改密码请求
+export interface ChangePasswordVO {
+  new_password: string
+  confirm_password: string
 }

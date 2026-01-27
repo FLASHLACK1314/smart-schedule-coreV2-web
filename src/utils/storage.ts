@@ -34,8 +34,14 @@ export const storage = {
    * 获取用户信息
    */
   getUserInfo(): any | null {
-    const userInfo = localStorage.getItem('userInfo')
-    return userInfo ? JSON.parse(userInfo) : null
+    try {
+      const userInfo = localStorage.getItem('userInfo')
+      if (!userInfo) return null
+      return JSON.parse(userInfo)
+    } catch (error) {
+      console.error('解析用户信息失败:', error)
+      return null
+    }
   },
 
   /**
@@ -46,10 +52,32 @@ export const storage = {
   },
 
   /**
+   * 设置用户类型
+   */
+  setUserType(userType: string): void {
+    localStorage.setItem('userType', userType)
+  },
+
+  /**
+   * 获取用户类型
+   */
+  getUserType(): string | null {
+    return localStorage.getItem('userType')
+  },
+
+  /**
+   * 移除用户类型
+   */
+  removeUserType(): void {
+    localStorage.removeItem('userType')
+  },
+
+  /**
    * 清除所有登录信息
    */
   clearAuth(): void {
     this.removeToken()
     this.removeUserInfo()
+    this.removeUserType()
   },
 }

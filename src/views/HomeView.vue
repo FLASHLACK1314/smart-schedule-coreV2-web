@@ -127,11 +127,11 @@ const userName = computed(() => {
   const userInfo = userStore.userInfo
   if (!userInfo) return '用户'
 
-  // 根据用户类型返回对应的名称字段
-  if (userInfo.studentName) return userInfo.studentName
-  if (userInfo.teacherName) return userInfo.teacherName
-  if (userInfo.academicName) return userInfo.academicName
-  if (userInfo.adminUsername) return userInfo.adminUsername
+  // 根据用户类型返回对应的名称字段（使用下划线命名）
+  if (userInfo.student_name) return userInfo.student_name
+  if (userInfo.teacher_name) return userInfo.teacher_name
+  if (userInfo.academic_name) return userInfo.academic_name
+  if (userInfo.admin_username) return userInfo.admin_username
 
   return '用户'
 })

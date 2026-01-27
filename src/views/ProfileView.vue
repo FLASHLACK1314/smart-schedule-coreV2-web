@@ -15,51 +15,48 @@ const userInfo = computed(() => {
   if (!info || !userType) return null
 
   // 根据用户类型返回对应的用户信息
-  if (userType === UserType.STUDENT && info.studentName) {
+  if (userType === UserType.STUDENT && info.student_name) {
     return {
       type: '学生',
       icon: '👨‍🎓',
       fields: [
-        { label: '学号', value: info.studentId || '-' },
-        { label: '姓名', value: info.studentName || '-' },
-        { label: '班级 UUID', value: info.classUuid || '-' },
+        { label: '学号', value: info.student_id || '-' },
+        { label: '姓名', value: info.student_name || '-' },
       ],
     }
   }
 
-  if (userType === UserType.TEACHER && info.teacherName) {
+  if (userType === UserType.TEACHER && info.teacher_name) {
     return {
       type: '教师',
       icon: '👨‍🏫',
       fields: [
-        { label: '教师编号', value: info.teacherNum || '-' },
-        { label: '姓名', value: info.teacherName || '-' },
+        { label: '教师编号', value: info.teacher_num || '-' },
+        { label: '姓名', value: info.teacher_name || '-' },
         { label: '职称', value: info.title || '-' },
-        { label: '每周最大课时', value: info.maxHoursPerWeek || '-' },
-        { label: '状态', value: info.isActive ? '在职' : '离职' },
+        { label: '每周最大课时', value: info.max_hours_per_week || '-' },
+        { label: '状态', value: info.is_active ? '在职' : '离职' },
       ],
     }
   }
 
-  if (userType === UserType.ACADEMIC_ADMIN && info.academicName) {
+  if (userType === UserType.ACADEMIC_ADMIN && info.academic_name) {
     return {
       type: '教务管理员',
       icon: '📋',
       fields: [
-        { label: '教务编号', value: info.academicNum || '-' },
-        { label: '姓名', value: info.academicName || '-' },
-        { label: '部门 UUID', value: info.departmentUuid || '-' },
+        { label: '教务编号', value: info.academic_num || '-' },
+        { label: '姓名', value: info.academic_name || '-' },
       ],
     }
   }
 
-  if (userType === UserType.SYSTEM_ADMIN && info.adminUsername) {
+  if (userType === UserType.SYSTEM_ADMIN && info.admin_username) {
     return {
       type: '系统管理员',
       icon: '⚙️',
       fields: [
-        { label: '用户名', value: info.adminUsername || '-' },
-        { label: '管理员 UUID', value: info.adminUuid || '-' },
+        { label: '用户名', value: info.admin_username || '-' },
       ],
     }
   }
@@ -67,11 +64,26 @@ const userInfo = computed(() => {
   return null
 })
 
+// 计算是否允许修改密码（系统管理员不能修改密码）
+const canChangePassword = computed(() => {
+  const userType = userStore.userType
+  return userType === UserType.STUDENT ||
+         userType === UserType.TEACHER ||
+         userType === UserType.ACADEMIC_ADMIN
+})
+
 /**
  * 返回首页
  */
 const goBack = () => {
   router.push('/')
+}
+
+/**
+ * 跳转到修改密码页面
+ */
+const goToChangePassword = () => {
+  router.push('/change-password')
 }
 </script>
 
@@ -123,6 +135,21 @@ const goBack = () => {
               <div class="info-label">用户类型</div>
               <div class="info-value">
                 <span class="user-type-badge">{{ userInfo.type }}</span>
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">安全设置</div>
+              <div class="info-value">
+                <button
+                  class="change-password-btn"
+                  :class="{ disabled: !canChangePassword }"
+                  :disabled="!canChangePassword"
+                  @click="goToChangePassword"
+                  :title="canChangePassword ? '修改密码' : '系统管理员暂不支持修改密码'"
+                >
+                  <span class="btn-icon">🔒</span>
+                  修改密码
+                </button>
               </div>
             </div>
           </div>
@@ -306,6 +333,45 @@ const goBack = () => {
   border-radius: 20px;
   font-size: 0.9rem;
   font-weight: 600;
+}
+
+.change-password-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 8px;
+  color: #00d4ff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.change-password-btn:hover:not(.disabled) {
+  background: rgba(0, 212, 255, 0.2);
+  border-color: rgba(0, 212, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.change-password-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #a0aec0;
+}
+
+.change-password-btn.disabled:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-icon {
+  font-size: 1rem;
 }
 
 /* 空状态 */

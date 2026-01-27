@@ -8,7 +8,7 @@ export const useUserStore = defineStore('user', () => {
   // 状态
   const token = ref<string | null>(storage.getToken())
   const userInfo = ref<any | null>(storage.getUserInfo())
-  const userType = ref<string | null>(null)
+  const userType = ref<string | null>(storage.getUserType())
 
   // 计算属性
   const isLoggedIn = computed(() => !!token.value)
@@ -37,11 +37,15 @@ export const useUserStore = defineStore('user', () => {
         SYSTEM_ADMIN: 'system_admin_info',
       }[response.user_type] || 'student_info'
 
-      userInfo.value = response[infoKey as keyof GetUserLoginDTO]
+      const info = response[infoKey as keyof GetUserLoginDTO]
+      userInfo.value = info
 
-      // 持久化到 localStorage
+      // 持久化到 localStorage（只在有数据时才保存）
       storage.setToken(response.token)
-      storage.setUserInfo(userInfo.value)
+      storage.setUserType(response.user_type)
+      if (info) {
+        storage.setUserInfo(info)
+      }
 
       return response
     } catch (error) {
