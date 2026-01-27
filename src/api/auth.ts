@@ -15,11 +15,11 @@ export const login = (data: LoginVO): Promise<GetUserLoginDTO> => {
 }
 
 /**
- * 用户登出（可选，如果有此接口）
+ * 用户登出
  */
 export const logout = (): Promise<void> => {
   return request({
     url: '/v1/auth/logout',
-    method: 'POST',
+    method: 'DELETE',
   })
 }

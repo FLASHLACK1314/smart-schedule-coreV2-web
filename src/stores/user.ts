@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { GetUserLoginDTO } from '@/api/types'
 import { storage } from '@/utils/storage'
-import { login as loginApi } from '@/api/auth'
+import { login as loginApi, logout as logoutApi } from '@/api/auth'
 
 export const useUserStore = defineStore('user', () => {
   // 状态
@@ -53,11 +53,20 @@ export const useUserStore = defineStore('user', () => {
   /**
    * 登出
    */
-  const logout = () => {
-    token.value = null
-    userInfo.value = null
-    userType.value = null
-    storage.clearAuth()
+  const logout = async () => {
+    try {
+      // 调用后端登出接口
+      await logoutApi()
+    } catch (error) {
+      console.error('登出 API 调用失败:', error)
+      // 即使 API 调用失败，也继续清除本地状态
+    } finally {
+      // 无论 API 调用成功与否，都清除本地状态
+      token.value = null
+      userInfo.value = null
+      userType.value = null
+      storage.clearAuth()
+    }
   }
 
   return {

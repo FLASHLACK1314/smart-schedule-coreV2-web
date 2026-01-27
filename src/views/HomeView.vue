@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { UserType } from '@/api/types'
 
 interface Feature {
   id: number
@@ -7,16 +10,21 @@ interface Feature {
   description: string
   icon: string
   color: string
-  comingSoon?: boolean
+  userTypes?: string[] // 限定哪些用户类型可以看到此功能
 }
 
-const features = ref<Feature[]>([
+const userStore = useUserStore()
+const router = useRouter()
+
+// 所有功能定义
+const allFeatures: Feature[] = [
   {
     id: 1,
     title: '智能排课',
     description: '基于先进算法的自动排课系统，一键生成最优课表',
     icon: '📅',
     color: '#4CAF50',
+    userTypes: [], // 管理员不显示此功能
   },
   {
     id: 2,
@@ -24,6 +32,7 @@ const features = ref<Feature[]>([
     description: '全面管理课程信息、课时设置和教学安排',
     icon: '📚',
     color: '#2196F3',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
   {
     id: 3,
@@ -31,6 +40,7 @@ const features = ref<Feature[]>([
     description: '维护教师档案、授课时间偏好和教学资源',
     icon: '👨‍🏫',
     color: '#FF9800',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
   {
     id: 4,
@@ -38,6 +48,7 @@ const features = ref<Feature[]>([
     description: '智能化教室资源调度，最大化利用率',
     icon: '🏫',
     color: '#9C27B0',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
   {
     id: 5,
@@ -45,58 +56,151 @@ const features = ref<Feature[]>([
     description: '灵活管理班级信息和学生数据统计',
     icon: '👥',
     color: '#F44336',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
   {
     id: 6,
-    title: '课表查看',
-    description: '多维度课表展示，支持导出和打印',
+    title: '学生管理',
+    description: '管理学生档案、学籍信息和成绩数据',
+    icon: '🎓',
+    color: '#00BCD4',
+    userTypes: [UserType.SYSTEM_ADMIN],
+  },
+  {
+    id: 7,
+    title: '教务管理',
+    description: '教务处人员管理、部门配置与权限设置',
+    icon: '📋',
+    color: '#E91E63',
+    userTypes: [UserType.SYSTEM_ADMIN],
+  },
+  {
+    id: 8,
+    title: '我的课表',
+    description: '查看个人课程安排，支持导出和打印',
     icon: '📊',
     color: '#00BCD4',
-    comingSoon: true,
+    userTypes: [], // 管理员不显示此功能
   },
-])
+]
+
+// 根据用户类型过滤功能
+const features = computed(() => {
+  const userType = userStore.userType
+
+  if (!userType) return []
+
+  // 学生和老师只能看到"我的课表"
+  if (userType === UserType.STUDENT || userType === UserType.TEACHER) {
+    return allFeatures.filter(f => f.title === '我的课表')
+  }
+
+  // 管理员：根据 userTypes 过滤功能
+  return allFeatures.filter(f => {
+    // 如果 userTypes 未定义，该功能对所有用户可见
+    if (!f.userTypes) {
+      return true
+    }
+    // 如果 userTypes 是空数组，该功能对任何用户都不可见
+    if (f.userTypes.length === 0) {
+      return false
+    }
+    // 否则，只对指定用户类型可见
+    return f.userTypes.includes(userType)
+  })
+})
+
+// 用户类型显示名称
+const userTypeLabel = computed(() => {
+  const userType = userStore.userType
+  const labels = {
+    [UserType.STUDENT]: '学生',
+    [UserType.TEACHER]: '教师',
+    [UserType.ACADEMIC_ADMIN]: '教务管理员',
+    [UserType.SYSTEM_ADMIN]: '系统管理员',
+  }
+  return labels[userType as UserType] || '用户'
+})
+
+// 用户名显示
+const userName = computed(() => {
+  const userInfo = userStore.userInfo
+  if (!userInfo) return '用户'
+
+  // 根据用户类型返回对应的名称字段
+  if (userInfo.studentName) return userInfo.studentName
+  if (userInfo.teacherName) return userInfo.teacherName
+  if (userInfo.academicName) return userInfo.academicName
+  if (userInfo.adminUsername) return userInfo.adminUsername
+
+  return '用户'
+})
 
 const handleFeatureClick = (feature: Feature) => {
-  if (feature.comingSoon) {
-    alert('该功能即将上线，敬请期待！')
-  } else {
-    console.log('点击功能:', feature.title)
+  console.log('点击功能:', feature.title)
+  // TODO: 根据功能跳转到不同页面
+}
+
+/**
+ * 跳转到个人信息页面
+ */
+const goToProfile = () => {
+  router.push('/profile')
+}
+
+/**
+ * 处理登出
+ */
+const handleLogout = async () => {
+  try {
+    await userStore.logout()
+    window.location.href = '/login'
+  } catch (error) {
+    console.error('登出失败:', error)
+    // 即使 API 调用失败，也清除本地状态
+    userStore.logout()
+    window.location.href = '/login'
   }
 }
 </script>
 
 <template>
   <div class="home-page">
+    <!-- 顶部导航栏 -->
+    <nav class="top-navbar">
+      <div class="navbar-content">
+        <div class="navbar-logo">
+          <span class="logo-icon">📅</span>
+          <span class="logo-text">智能排课系统</span>
+        </div>
+        <div class="navbar-user">
+          <div class="user-info" @click="goToProfile">
+            <span class="user-icon">👤</span>
+            <span class="user-name">{{ userName }}</span>
+            <span class="user-type">{{ userTypeLabel }}</span>
+          </div>
+          <button class="logout-button" @click="handleLogout">
+            <span class="logout-icon">🚪</span>
+            <span>退出登录</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
     <!-- 头部横幅 -->
     <div class="hero-section">
       <div class="hero-content">
         <div class="hero-badge">
           <span class="badge-icon">✨</span>
-          <span>智能排课系统 V2.0</span>
+          <span>{{ userTypeLabel }}中心 - 智能排课系统 V2.0</span>
         </div>
         <h1 class="hero-title">
-          重新定义<br/>
-          <span class="highlight">学校排课</span>
+          欢迎回来<br/>
+          <span class="highlight">{{ userTypeLabel }}</span>
         </h1>
         <p class="hero-subtitle">
           高效 · 智能 · 便捷的现代化排课解决方案
         </p>
-        <div class="hero-stats">
-          <div class="stat-item">
-            <div class="stat-number">99%</div>
-            <div class="stat-label">准确率</div>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <div class="stat-number">10x</div>
-            <div class="stat-label">效率提升</div>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <div class="stat-number">24/7</div>
-            <div class="stat-label">全天候服务</div>
-          </div>
-        </div>
       </div>
       <div class="hero-visual">
         <div class="floating-card card-1">📅 排课</div>
@@ -116,7 +220,6 @@ const handleFeatureClick = (feature: Feature) => {
           v-for="feature in features"
           :key="feature.id"
           class="feature-card"
-          :class="{ 'coming-soon': feature.comingSoon }"
           @click="handleFeatureClick(feature)"
         >
           <div class="feature-icon-wrapper" :style="{ backgroundColor: feature.color + '20' }">
@@ -158,6 +261,111 @@ const handleFeatureClick = (feature: Feature) => {
   width: 100%;
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+}
+
+/* 顶部导航栏 */
+.top-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(15, 15, 26, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.navbar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 4rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  font-size: 1.5rem;
+}
+
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.user-info:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0, 212, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.user-icon {
+  font-size: 1.2rem;
+}
+
+.user-name {
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.user-type {
+  color: #a0aec0;
+  font-size: 0.85rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 8px;
+  color: #f44336;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.logout-button:hover {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.5);
+  transform: translateY(-1px);
+}
+
+.logout-icon {
+  font-size: 1rem;
 }
 
 /* 头部横幅 */
@@ -214,40 +422,8 @@ const handleFeatureClick = (feature: Feature) => {
   font-size: 1.25rem;
   color: #a0aec0;
   opacity: 1;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
   line-height: 1.6;
-}
-
-.hero-stats {
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-number {
-  font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.stat-label {
-  font-size: 0.85rem;
-  color: #a0aec0;
-  opacity: 1;
-  margin-top: 0.25rem;
-}
-
-.stat-divider {
-  width: 1px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .hero-visual {
@@ -359,15 +535,6 @@ const handleFeatureClick = (feature: Feature) => {
   box-shadow: 0 20px 60px rgba(0, 212, 255, 0.2);
   border-color: rgba(0, 212, 255, 0.3);
   background: linear-gradient(135deg, rgba(35, 35, 60, 0.9) 0%, rgba(50, 50, 80, 0.9) 100%);
-}
-
-.feature-card.coming-soon {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.feature-card.coming-soon:hover {
-  transform: none;
 }
 
 .feature-icon-wrapper {
@@ -487,6 +654,10 @@ const handleFeatureClick = (feature: Feature) => {
 
 /* 响应式设计 */
 @media (max-width: 1200px) {
+  .top-navbar .navbar-content {
+    padding: 1rem 2rem;
+  }
+
   .hero-section {
     padding: 4rem 2rem;
     flex-direction: column;
@@ -507,6 +678,30 @@ const handleFeatureClick = (feature: Feature) => {
 }
 
 @media (max-width: 768px) {
+  .top-navbar .navbar-content {
+    padding: 1rem 1.5rem;
+  }
+
+  .navbar-user {
+    gap: 1rem;
+  }
+
+  .user-info {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .user-name {
+    display: none;
+  }
+
+  .logout-button span:not(.logout-icon) {
+    display: none;
+  }
+
+  .logout-button {
+    padding: 0.5rem 0.75rem;
+  }
+
   .hero-section {
     padding: 3rem 1.5rem;
   }
@@ -517,15 +712,6 @@ const handleFeatureClick = (feature: Feature) => {
 
   .hero-subtitle {
     font-size: 1.1rem;
-  }
-
-  .hero-stats {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .stat-divider {
-    display: none;
   }
 
   .hero-visual {
