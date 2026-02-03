@@ -22,6 +22,7 @@ const userInfo = computed(() => {
       fields: [
         { label: '学号', value: info.student_id || '-' },
         { label: '姓名', value: info.student_name || '-' },
+        { label: '行政班级', value: info.class_name || '-' },
       ],
     }
   }
@@ -34,6 +35,7 @@ const userInfo = computed(() => {
         { label: '教师编号', value: info.teacher_num || '-' },
         { label: '姓名', value: info.teacher_name || '-' },
         { label: '职称', value: info.title || '-' },
+        { label: '学院', value: info.department_name || '-' },
         { label: '每周最大课时', value: info.max_hours_per_week || '-' },
         { label: '状态', value: info.is_active ? '在职' : '离职' },
       ],
@@ -47,6 +49,7 @@ const userInfo = computed(() => {
       fields: [
         { label: '教务编号', value: info.academic_num || '-' },
         { label: '姓名', value: info.academic_name || '-' },
+        { label: '学院', value: info.college_name || '-' },
       ],
     }
   }

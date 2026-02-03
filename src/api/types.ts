@@ -32,6 +32,7 @@ export interface StudentUserInfoDTO {
   student_id: string
   student_name: string
   class_uuid: string
+  class_name?: string // 行政班级名称
 }
 
 // 教师用户信息
@@ -43,6 +44,8 @@ export interface TeacherUserInfoDTO {
   max_hours_per_week: number
   is_active: boolean
   like_time: string
+  department_uuid?: string // 所属学院UUID
+  department_name?: string // 学院名称
 }
 
 // 教务管理员用户信息
@@ -51,6 +54,7 @@ export interface AcademicAdminUserInfoDTO {
   department_uuid: string
   academic_num: string
   academic_name: string
+  college_name?: string // 学院名称
 }
 
 // 系统管理员用户信息
