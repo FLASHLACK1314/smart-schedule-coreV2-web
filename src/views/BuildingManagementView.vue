@@ -1,20 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { getBuildingPage, addBuilding, updateBuilding, deleteBuilding as deleteBuildingApi } from '@/api/building'
+import type { BuildingInfoDTO } from '@/api/types'
 
 const router = useRouter()
 
 // 教学楼数据类型定义
-interface Building {
-  building_uuid: string
-  building_name: string
-  building_code: string
-  floor_count: number
-  classroom_count: number
-  is_active: boolean
-  location?: string
-  description?: string
-}
+interface Building extends BuildingInfoDTO {}
 
 // 响应式数据
 const buildings = ref<Building[]>([])
@@ -22,54 +15,76 @@ const loading = ref(false)
 const searchKeyword = ref('')
 const showDialog = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
+const currentPage = ref(1)
+const pageSize = ref(100) // 默认获取100条，避免分页
+const total = ref(0)
+
+// 当前编辑的教学楼
 const currentBuilding = ref<Building>({
   building_uuid: '',
+  building_num: '',
   building_name: '',
-  building_code: '',
-  floor_count: 1,
-  classroom_count: 0,
-  is_active: true,
-  location: '',
-  description: '',
 })
 
-// 计算属性：过滤后的教学楼列表
-const filteredBuildings = computed(() => {
-  if (!searchKeyword.value) return buildings.value
-  const keyword = searchKeyword.value.toLowerCase()
-  return buildings.value.filter(
-    (building) =>
-      building.building_name.toLowerCase().includes(keyword) ||
-      building.building_code.toLowerCase().includes(keyword) ||
-      (building.location && building.location.toLowerCase().includes(keyword)),
-  )
+// 计算属性：显示的教学楼列表（直接使用 buildings，因为后端已经处理搜索）
+const displayBuildings = computed(() => {
+  return buildings.value
 })
 
 // 获取教学楼列表
-const fetchBuildings = async () => {
+const fetchBuildings = async (searchNum?: string, searchName?: string) => {
   loading.value = true
   try {
-    // TODO: 替换为实际的 API 调用
-    buildings.value = []
+    const response = await getBuildingPage({
+      page: currentPage.value,
+      size: pageSize.value,
+      building_num: searchNum,
+      building_name: searchName,
+    })
+    buildings.value = response.records
+    total.value = response.total
   } catch (error) {
     console.error('获取教学楼列表失败:', error)
+    // 显示错误提示
+    alert('获取教学楼列表失败: ' + (error as Error).message)
   } finally {
     loading.value = false
   }
 }
+
+// 监听搜索关键词，使用防抖
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchKeyword, (newKeyword) => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    if (newKeyword) {
+      // 智能判断：如果输入包含字母或数字，优先搜索编号，否则搜索名称
+      // 因为编号通常是 A001、B002 这样的格式
+      const hasAlphaNumeric = /[a-zA-Z0-9]/.test(newKeyword)
+
+      if (hasAlphaNumeric) {
+        // 包含字母或数字，优先按编号搜索
+        fetchBuildings(newKeyword, undefined)
+      } else {
+        // 纯中文，按名称搜索
+        fetchBuildings(undefined, newKeyword)
+      }
+    } else {
+      // 清空搜索时重新加载全部数据
+      fetchBuildings()
+    }
+  }, 500)
+})
 
 // 打开添加对话框
 const openAddDialog = () => {
   dialogMode.value = 'add'
   currentBuilding.value = {
     building_uuid: '',
+    building_num: '',
     building_name: '',
-    building_code: '',
-    floor_count: 1,
-    classroom_count: 0,
-    is_active: true,
-    location: '',
-    description: '',
   }
   showDialog.value = true
 }
@@ -83,17 +98,33 @@ const openEditDialog = (building: Building) => {
 
 // 保存教学楼
 const saveBuilding = async () => {
+  // 验证表单
+  if (!currentBuilding.value.building_num.trim()) {
+    alert('请输入教学楼编号')
+    return
+  }
+  if (!currentBuilding.value.building_name.trim()) {
+    alert('请输入教学楼名称')
+    return
+  }
+
   try {
-    // TODO: 替换为实际的 API 调用
     if (dialogMode.value === 'add') {
-      console.log('添加教学楼:', currentBuilding.value)
+      await addBuilding(currentBuilding.value.building_num, currentBuilding.value.building_name)
+      alert('添加教学楼成功')
     } else {
-      console.log('更新教学楼:', currentBuilding.value)
+      await updateBuilding(
+        currentBuilding.value.building_uuid,
+        currentBuilding.value.building_num,
+        currentBuilding.value.building_name
+      )
+      alert('更新教学楼成功')
     }
     showDialog.value = false
     await fetchBuildings()
   } catch (error) {
     console.error('保存教学楼失败:', error)
+    alert('保存教学楼失败: ' + (error as Error).message)
   }
 }
 
@@ -102,27 +133,18 @@ const deleteBuilding = async (building_uuid: string) => {
   if (!confirm('确定要删除该教学楼吗？')) return
 
   try {
-    // TODO: 替换为实际的 API 调用
-    console.log('删除教学楼:', building_uuid)
+    await deleteBuildingApi(building_uuid)
+    alert('删除教学楼成功')
     await fetchBuildings()
   } catch (error) {
     console.error('删除教学楼失败:', error)
+    alert('删除教学楼失败: ' + (error as Error).message)
   }
 }
 
 // 返回首页
 const goBack = () => {
   router.push('/')
-}
-
-// 格式化状态显示
-const formatStatus = (isActive: boolean) => {
-  return isActive ? '启用' : '禁用'
-}
-
-// 格式化状态样式
-const getStatusClass = (isActive: boolean) => {
-  return isActive ? 'status-active' : 'status-inactive'
 }
 
 // 页面加载时获取数据
@@ -169,43 +191,32 @@ onMounted(() => {
         <p>加载中...</p>
       </div>
 
-      <div v-else-if="filteredBuildings.length === 0" class="empty-state">
+      <div v-else-if="displayBuildings.length === 0" class="empty-state">
         <div class="empty-icon">🏢</div>
         <h3>暂无教学楼数据</h3>
         <p>点击"添加教学楼"按钮添加第一个教学楼</p>
       </div>
 
       <div v-else class="building-grid">
-        <div v-for="building in filteredBuildings" :key="building.building_uuid" class="building-card">
+        <div v-for="building in displayBuildings" :key="building.building_uuid" class="building-card">
           <div class="card-header">
             <div class="building-avatar">
               {{ building.building_name.charAt(0) }}
             </div>
             <div class="building-info">
               <h3 class="building-name">{{ building.building_name }}</h3>
-              <p class="building-code">{{ building.building_code }}</p>
-            </div>
-            <div :class="['status-badge', getStatusClass(building.is_active)]">
-              {{ formatStatus(building.is_active) }}
+              <p class="building-code">{{ building.building_num }}</p>
             </div>
           </div>
 
           <div class="card-body">
             <div class="info-row">
-              <span class="info-label">楼层数</span>
-              <span class="info-value">{{ building.floor_count }} 层</span>
+              <span class="info-label">教学楼编号</span>
+              <span class="info-value">{{ building.building_num }}</span>
             </div>
             <div class="info-row">
-              <span class="info-label">教室数</span>
-              <span class="info-value">{{ building.classroom_count }} 间</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">位置</span>
-              <span class="info-value">{{ building.location || '未设置' }}</span>
-            </div>
-            <div v-if="building.description" class="info-row description">
-              <span class="info-label">说明</span>
-              <span class="info-value">{{ building.description }}</span>
+              <span class="info-label">教学楼名称</span>
+              <span class="info-value">{{ building.building_name }}</span>
             </div>
           </div>
 
@@ -233,41 +244,25 @@ onMounted(() => {
 
         <div class="dialog-body">
           <div class="form-group">
-            <label class="form-label">教学楼名称 *</label>
-            <input v-model="currentBuilding.building_name" type="text" class="form-input" placeholder="例如：第一教学楼" />
-          </div>
-
-          <div class="form-group">
             <label class="form-label">教学楼编号 *</label>
-            <input v-model="currentBuilding.building_code" type="text" class="form-input" placeholder="例如：A001" />
+            <input
+              v-model="currentBuilding.building_num"
+              type="text"
+              class="form-input"
+              placeholder="例如：A001"
+              :disabled="dialogMode === 'edit'"
+            />
+            <small v-if="dialogMode === 'edit'" class="form-hint">编号不可修改</small>
           </div>
 
           <div class="form-group">
-            <label class="form-label">楼层数 *</label>
-            <input v-model.number="currentBuilding.floor_count" type="number" class="form-input" min="1" max="100" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">教室数量</label>
-            <input v-model.number="currentBuilding.classroom_count" type="number" class="form-input" min="0" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">位置</label>
-            <input v-model="currentBuilding.location" type="text" class="form-input" placeholder="例如：校区东区" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">说明</label>
-            <textarea v-model="currentBuilding.description" class="form-textarea" placeholder="教学楼的详细说明" rows="3"></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">状态</label>
-            <label class="checkbox-label">
-              <input v-model="currentBuilding.is_active" type="checkbox" />
-              <span>启用</span>
-            </label>
+            <label class="form-label">教学楼名称 *</label>
+            <input
+              v-model="currentBuilding.building_name"
+              type="text"
+              class="form-input"
+              placeholder="例如：第一教学楼"
+            />
           </div>
         </div>
 
@@ -486,7 +481,6 @@ onMounted(() => {
   gap: 1rem;
   padding: 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  position: relative;
 }
 
 .building-avatar {
@@ -519,28 +513,6 @@ onMounted(() => {
   color: #a0aec0;
 }
 
-.status-badge {
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.status-active {
-  background: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
-  border: 1px solid rgba(76, 175, 80, 0.3);
-}
-
-.status-inactive {
-  background: rgba(244, 67, 54, 0.2);
-  color: #f44336;
-  border: 1px solid rgba(244, 67, 54, 0.3);
-}
-
 .card-body {
   padding: 1.5rem;
 }
@@ -554,15 +526,6 @@ onMounted(() => {
 
 .info-row:last-child {
   margin-bottom: 0;
-}
-
-.info-row.description {
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.info-row.description .info-value {
-  text-align: left;
 }
 
 .info-label {
@@ -712,6 +675,11 @@ onMounted(() => {
   outline: none;
 }
 
+.form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .form-input:focus,
 .form-textarea:focus {
   border-color: #00d4ff;
@@ -721,6 +689,13 @@ onMounted(() => {
 .form-textarea {
   resize: vertical;
   font-family: inherit;
+}
+
+.form-hint {
+  display: block;
+  color: #a0aec0;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
 }
 
 .checkbox-label {

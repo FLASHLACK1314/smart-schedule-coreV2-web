@@ -3,7 +3,9 @@
     "allow": [
       "Bash(tree:*)",
       "Bash(npm run type-check)",
-      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_7v7llo"
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_7v7llo",
+      "mcp__smart-schedule-coreV2__read_project_oas_1066tl",
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_1066tl"
     ]
   },
   "enableAllProjectMcpServers": true,

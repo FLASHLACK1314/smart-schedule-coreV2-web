@@ -78,3 +78,28 @@ export interface ChangePasswordVO {
   new_password: string
   confirm_password: string
 }
+
+// ========== 教学楼相关类型 ==========
+
+// 教学楼信息
+export interface BuildingInfoDTO {
+  building_uuid: string
+  building_num: string
+  building_name: string
+}
+
+// 分页查询响应
+export interface PageDTO<T> {
+  total: number
+  page: number
+  size: number
+  records: T[]
+}
+
+// 教学楼分页查询参数
+export interface BuildingPageQuery {
+  page: number
+  size: number
+  building_num?: string
+  building_name?: string
+}
