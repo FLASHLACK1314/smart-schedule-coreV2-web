@@ -54,45 +54,7 @@ const fetchColleges = async () => {
   loading.value = true
   try {
     // TODO: 替换为实际的 API 调用
-    // 模拟数据
-    colleges.value = [
-      {
-        college_uuid: '1',
-        college_code: 'CS001',
-        college_name: '计算机科学与技术学院',
-        dean_name: '张院长',
-        contact_phone: '010-12345678',
-        email: 'cs@university.edu',
-        address: '信息楼A座',
-        establishment_date: '2000-09-01',
-        description: '培养计算机领域高素质人才',
-        is_active: true,
-      },
-      {
-        college_uuid: '2',
-        college_code: 'SE002',
-        college_name: '软件工程学院',
-        dean_name: '李院长',
-        contact_phone: '010-23456789',
-        email: 'se@university.edu',
-        address: '软件楼B座',
-        establishment_date: '2005-09-01',
-        description: '专注于软件工程人才培养',
-        is_active: true,
-      },
-      {
-        college_uuid: '3',
-        college_code: 'AI003',
-        college_name: '人工智能学院',
-        dean_name: '王院长',
-        contact_phone: '010-34567890',
-        email: 'ai@university.edu',
-        address: '智能楼C座',
-        establishment_date: '2019-09-01',
-        description: '人工智能领域前沿研究',
-        is_active: true,
-      },
-    ]
+    colleges.value = []
   } catch (error) {
     console.error('获取学院列表失败:', error)
   } finally {

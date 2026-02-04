@@ -44,6 +44,14 @@ const allFeatures: Feature[] = [
   },
   {
     id: 4,
+    title: '教学楼管理',
+    description: '管理教学楼信息，维护教学场地资源',
+    icon: '🏢',
+    color: '#FF5722',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+  },
+  {
+    id: 5,
     title: '教室管理',
     description: '智能化教室资源调度，最大化利用率',
     icon: '🏫',
@@ -51,7 +59,7 @@ const allFeatures: Feature[] = [
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
   {
-    id: 5,
+    id: 6,
     title: '班级管理',
     description: '灵活管理班级信息和学生数据统计',
     icon: '👥',
@@ -59,7 +67,7 @@ const allFeatures: Feature[] = [
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
   {
-    id: 6,
+    id: 7,
     title: '学生管理',
     description: '管理学生档案、学籍信息和成绩数据',
     icon: '🎓',
@@ -67,7 +75,7 @@ const allFeatures: Feature[] = [
     userTypes: [UserType.SYSTEM_ADMIN],
   },
   {
-    id: 7,
+    id: 8,
     title: '学院管理',
     description: '管理学院组织架构、专业设置和行政配置',
     icon: '🏛️',
@@ -75,7 +83,7 @@ const allFeatures: Feature[] = [
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
   {
-    id: 8,
+    id: 9,
     title: '专业管理',
     description: '管理专业信息、培养方案和专业设置',
     icon: '📖',
@@ -83,7 +91,7 @@ const allFeatures: Feature[] = [
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
   {
-    id: 9,
+    id: 10,
     title: '教务管理',
     description: '教务处人员管理、部门配置与权限设置',
     icon: '📋',
@@ -91,7 +99,7 @@ const allFeatures: Feature[] = [
     userTypes: [UserType.SYSTEM_ADMIN],
   },
   {
-    id: 10,
+    id: 11,
     title: '我的课表',
     description: '查看个人课程安排，支持导出和打印',
     icon: '📊',
@@ -163,6 +171,7 @@ const handleFeatureClick = (feature: Feature) => {
     学院管理: '/college-management',
     专业管理: '/major-management',
     课程管理: '/course-management',
+    教学楼管理: '/building-management',
     教室管理: '/classroom-management',
     班级管理: '/class-management',
     智能排课: '/schedule',
