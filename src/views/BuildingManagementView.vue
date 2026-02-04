@@ -3,8 +3,10 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getBuildingPage, addBuilding, updateBuilding, deleteBuilding as deleteBuildingApi } from '@/api/building'
 import type { BuildingInfoDTO } from '@/api/types'
+import { useMessage } from '@/composables/useMessage'
 
 const router = useRouter()
+const { success, error } = useMessage()
 
 // 教学楼数据类型定义
 interface Building extends BuildingInfoDTO {}
@@ -43,10 +45,9 @@ const fetchBuildings = async (searchNum?: string, searchName?: string) => {
     })
     buildings.value = response.records
     total.value = response.total
-  } catch (error) {
-    console.error('获取教学楼列表失败:', error)
-    // 显示错误提示
-    alert('获取教学楼列表失败: ' + (error as Error).message)
+  } catch (err) {
+    console.error('获取教学楼列表失败:', err)
+    error('获取教学楼列表失败: ' + (err as Error).message)
   } finally {
     loading.value = false
   }
@@ -100,31 +101,31 @@ const openEditDialog = (building: Building) => {
 const saveBuilding = async () => {
   // 验证表单
   if (!currentBuilding.value.building_num.trim()) {
-    alert('请输入教学楼编号')
+    error('请输入教学楼编号')
     return
   }
   if (!currentBuilding.value.building_name.trim()) {
-    alert('请输入教学楼名称')
+    error('请输入教学楼名称')
     return
   }
 
   try {
     if (dialogMode.value === 'add') {
       await addBuilding(currentBuilding.value.building_num, currentBuilding.value.building_name)
-      alert('添加教学楼成功')
+      success('添加教学楼成功')
     } else {
       await updateBuilding(
         currentBuilding.value.building_uuid,
         currentBuilding.value.building_num,
         currentBuilding.value.building_name
       )
-      alert('更新教学楼成功')
+      success('更新教学楼成功')
     }
     showDialog.value = false
     await fetchBuildings()
-  } catch (error) {
-    console.error('保存教学楼失败:', error)
-    alert('保存教学楼失败: ' + (error as Error).message)
+  } catch (err) {
+    console.error('保存教学楼失败:', err)
+    error('保存教学楼失败: ' + (err as Error).message)
   }
 }
 
@@ -134,11 +135,11 @@ const deleteBuilding = async (building_uuid: string) => {
 
   try {
     await deleteBuildingApi(building_uuid)
-    alert('删除教学楼成功')
+    success('删除教学楼成功')
     await fetchBuildings()
-  } catch (error) {
-    console.error('删除教学楼失败:', error)
-    alert('删除教学楼失败: ' + (error as Error).message)
+  } catch (err) {
+    console.error('删除教学楼失败:', err)
+    error('删除教学楼失败: ' + (err as Error).message)
   }
 }
 

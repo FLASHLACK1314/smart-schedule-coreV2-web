@@ -1,9 +1,14 @@
 <script setup lang="ts">
-// RouterView 会被自动注册，无需显式导入
+import { useMessage } from '@/composables/useMessage'
+import MessageToast from '@/components/MessageToast.vue'
+
+// 全局消息提示
+const { messages, remove } = useMessage()
 </script>
 
 <template>
   <router-view />
+  <MessageToast :messages="messages" @remove="remove" />
 </template>
 
 <style>

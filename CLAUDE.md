@@ -112,3 +112,75 @@ src/
 
 - Node.js: `^20.19.0 || >=22.12.0`
 - 推荐使用 VS Code + Vue DevTools 扩展
+
+## 全局功能模块
+
+### 消息提示系统 (Message Toast)
+
+项目内置了一个优雅的全局消息提示系统，用于替代浏览器原生的 `alert()`。
+
+#### 使用方法
+
+在任意组件中导入 `useMessage` composable：
+
+```typescript
+import { useMessage } from '@/composables/useMessage'
+
+const { success, error, warning, info } = useMessage()
+
+// 成功消息（绿色）
+success('操作成功！')
+
+// 错误消息（红色）
+error('操作失败，请重试')
+
+// 警告消息（橙色）
+warning('请注意检查输入')
+
+// 信息消息（蓝色）
+info('数据加载中...')
+
+// 自定义显示时长（毫秒）
+success('保存成功', 5000)
+
+// 不自动关闭（需要手动关闭）
+error('严重错误', 0)
+```
+
+#### 设计特点
+
+- **4 种消息类型**：成功 ✅、错误 ❌、警告 ⚠️、信息 ℹ️
+- **深色主题**：毛玻璃背景，符合项目整体风格
+- **流畅动画**：从右侧滑入，支持堆叠显示
+- **自动关闭**：默认 3 秒后自动消失
+- **手动关闭**：点击 × 按钮立即关闭
+- **响应式设计**：
+  - 桌面端：右上角固定位置
+  - 移动端：顶部全宽显示
+
+#### 组件文件
+
+- **组件位置**：`src/components/MessageToast.vue`
+- **Composable**：`src/composables/useMessage.ts`
+- **全局注册**：在 `src/App.vue` 中已全局引入
+
+#### 示例代码
+
+```vue
+<script setup lang="ts">
+import { useMessage } from '@/composables/useMessage'
+
+const { success, error } = useMessage()
+
+const handleSubmit = async () => {
+  try {
+    await apiCall()
+    success('提交成功！')
+  } catch (err) {
+    error('提交失败：' + err.message)
+  }
+}
+</script>
+```
+
+**注意**：项目中禁止使用浏览器原生的 `alert()`，统一使用消息提示系统。
