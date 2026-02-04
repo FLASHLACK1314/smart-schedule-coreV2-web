@@ -103,3 +103,49 @@ export interface BuildingPageQuery {
   building_num?: string
   building_name?: string
 }
+
+// ========== 教室相关类型 ==========
+
+// 教室信息
+export interface ClassroomInfoDTO {
+  classroom_uuid: string
+  building_name: string
+  classroom_name: string
+  capacity: number
+  type_name: string
+  type_description: string
+}
+
+// 新增教室请求
+export interface AddClassroomVO {
+  building_uuid: string
+  classroom_name: string
+  capacity: number
+  classroom_type_uuid: string
+}
+
+// 教室分页查询参数
+export interface ClassroomPageQuery {
+  page: number
+  size: number
+  building_uuid?: string
+  classroom_name?: string
+  classroom_capacity?: string
+  classroom_type_uuid?: string
+}
+
+// ========== 教室类型相关类型 ==========
+
+// 教室类型信息
+export interface ClassroomTypeInfoDTO {
+  classroom_type_uuid: string
+  type_name: string
+  type_description: string
+}
+
+// 教室类型分页查询参数
+export interface ClassroomTypePageQuery {
+  page: number
+  size: number
+  classroom_type_name?: string
+}

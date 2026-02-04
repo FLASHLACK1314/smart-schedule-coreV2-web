@@ -5,7 +5,12 @@
       "Bash(npm run type-check)",
       "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_7v7llo",
       "mcp__smart-schedule-coreV2__read_project_oas_1066tl",
-      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_1066tl"
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_1066tl",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "mcp__smart-schedule-coreV2__read_project_oas_mzfnaj",
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_mzfnaj"
     ]
   },
   "enableAllProjectMcpServers": true,
