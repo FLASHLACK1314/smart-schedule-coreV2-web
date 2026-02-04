@@ -54,45 +54,7 @@ const fetchTeachers = async () => {
   loading.value = true
   try {
     // TODO: 替换为实际的 API 调用
-    // 模拟数据
-    teachers.value = [
-      {
-        teacher_uuid: '1',
-        teacher_num: 'T2023001',
-        teacher_name: '张教授',
-        title: '教授',
-        max_hours_per_week: 16,
-        is_active: true,
-        like_time: '周一、周三、周五上午',
-        department: '计算机科学与技术学院',
-        email: 'zhang@university.edu',
-        phone: '13800001234',
-      },
-      {
-        teacher_uuid: '2',
-        teacher_num: 'T2023002',
-        teacher_name: '李老师',
-        title: '副教授',
-        max_hours_per_week: 18,
-        is_active: true,
-        like_time: '周二、周四下午',
-        department: '计算机科学与技术学院',
-        email: 'li@university.edu',
-        phone: '13800002345',
-      },
-      {
-        teacher_uuid: '3',
-        teacher_num: 'T2023003',
-        teacher_name: '王老师',
-        title: '讲师',
-        max_hours_per_week: 20,
-        is_active: false,
-        like_time: '周三、周五',
-        department: '软件工程学院',
-        email: 'wang@university.edu',
-        phone: '13800003456',
-      },
-    ]
+    teachers.value = []
   } catch (error) {
     console.error('获取教师列表失败:', error)
   } finally {
