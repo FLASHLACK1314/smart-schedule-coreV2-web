@@ -1,20 +1,24 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getMajorPage, addMajor, updateMajor, deleteMajor as deleteMajorApi } from '@/api/major'
+import { getClassPage, addClass, updateClass, deleteClass as deleteClassApi } from '@/api/class'
+import { getMajorPage } from '@/api/major'
 import { getDepartmentPage } from '@/api/department'
-import type { MajorInfoDTO, AddMajorVO } from '@/api/types'
+import type { ClassInfoDTO, AddClassVO, MajorInfoDTO } from '@/api/types'
 import { useMessage } from '@/composables/useMessage'
 
 const router = useRouter()
 const { success, error } = useMessage()
 
 // 响应式数据
+const classes = ref<ClassInfoDTO[]>([])
 const majors = ref<MajorInfoDTO[]>([])
 const departments = ref<{ department_uuid: string; department_name: string }[]>([])
 const loading = ref(false)
+const majorsLoading = ref(false)
 const departmentsLoading = ref(false)
 const searchKeyword = ref('')
+const selectedMajor = ref<string>('')
 const selectedDepartment = ref<string>('')
 const showDialog = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
@@ -24,12 +28,24 @@ const currentPage = ref(1)
 const pageSize = ref(100)
 const total = ref(0)
 
-// 当前编辑的专业
-const currentMajor = ref<AddMajorVO>({
+// 当前编辑的班级
+const currentClass = ref<AddClassVO>({
+  class_uuid: '',
   major_uuid: '',
-  department_uuid: '',
-  major_num: '',
-  major_name: '',
+  class_name: '',
+})
+
+// 根据选中的专业，计算显示的学院名称
+const selectedMajorDepartmentName = computed(() => {
+  if (!currentClass.value.major_uuid) return ''
+  const major = majors.value.find(m => m.major_uuid === currentClass.value.major_uuid)
+  return major?.department_name || ''
+})
+
+// 根据学院筛选，过滤专业下拉框选项
+const filteredMajors = computed(() => {
+  if (!selectedDepartment.value) return majors.value
+  return majors.value.filter(m => m.department_uuid === selectedDepartment.value)
 })
 
 // 获取学院列表（用于下拉选择）
@@ -49,32 +65,41 @@ const fetchDepartments = async () => {
   }
 }
 
-// 获取专业列表
-const fetchMajors = async (params?: { major_name?: string; major_num?: string; department_uuid?: string }) => {
-  loading.value = true
+// 获取专业列表（用于下拉选择）
+const fetchMajors = async () => {
+  majorsLoading.value = true
   try {
     const response = await getMajorPage({
-      page: currentPage.value,
-      size: pageSize.value,
-      ...params,
+      page: 1,
+      size: 1000,
     })
     majors.value = response.records
-    total.value = response.total
   } catch (err) {
     console.error('获取专业列表失败:', err)
     error('获取专业列表失败: ' + (err as Error).message)
   } finally {
-    loading.value = false
+    majorsLoading.value = false
   }
 }
 
-// 计算属性：显示的专业列表
-const displayMajors = ref<MajorInfoDTO[]>([])
-
-// 监听 majors 变化，更新显示列表
-watch(majors, (newMajors) => {
-  displayMajors.value = newMajors
-}, { immediate: true })
+// 获取班级列表
+const fetchClasses = async (params?: { class_name?: string; major_uuid?: string; department_uuid?: string }) => {
+  loading.value = true
+  try {
+    const response = await getClassPage({
+      page: currentPage.value,
+      size: pageSize.value,
+      ...params,
+    })
+    classes.value = response.records
+    total.value = response.total
+  } catch (err) {
+    console.error('获取班级列表失败:', err)
+    error('获取班级列表失败: ' + (err as Error).message)
+  } finally {
+    loading.value = false
+  }
+}
 
 // 搜索防抖
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -83,97 +108,103 @@ watch(searchKeyword, (newKeyword) => {
     clearTimeout(searchTimer)
   }
   searchTimer = setTimeout(() => {
-    if (newKeyword) {
-      // 智能判断：数字字母优先按专业编号搜索，中文按专业名称搜索
-      const hasAlphaNumeric = /[a-zA-Z0-9]/.test(newKeyword)
-
-      fetchMajors(
-        hasAlphaNumeric
-          ? { major_num: newKeyword, department_uuid: selectedDepartment.value || undefined }
-          : { major_name: newKeyword, department_uuid: selectedDepartment.value || undefined }
-      )
-    } else {
-      // 清空搜索时重新加载全部数据
-      fetchMajors({ department_uuid: selectedDepartment.value || undefined })
-    }
+    fetchClasses({
+      class_name: newKeyword || undefined,
+      major_uuid: selectedMajor.value || undefined,
+      department_uuid: selectedDepartment.value || undefined,
+    })
   }, 500)
 })
 
 // 监听学院筛选
 watch(selectedDepartment, (newDeptUuid) => {
-  fetchMajors({
-    major_name: searchKeyword.value || undefined,
+  // 重置专业筛选
+  selectedMajor.value = ''
+  // 刷新班级列表
+  fetchClasses({
+    class_name: searchKeyword.value || undefined,
     department_uuid: newDeptUuid || undefined,
+  })
+})
+
+// 监听专业筛选
+watch(selectedMajor, (newMajorUuid) => {
+  fetchClasses({
+    class_name: searchKeyword.value || undefined,
+    major_uuid: newMajorUuid || undefined,
+    department_uuid: selectedDepartment.value || undefined,
   })
 })
 
 // 打开添加对话框
 const openAddDialog = () => {
   dialogMode.value = 'add'
-  currentMajor.value = {
+  currentClass.value = {
+    class_uuid: '',
     major_uuid: '',
-    department_uuid: '',
-    major_num: '',
-    major_name: '',
+    class_name: '',
   }
   showDialog.value = true
 }
 
 // 打开编辑对话框
-const openEditDialog = (major: MajorInfoDTO) => {
+const openEditDialog = (classItem: ClassInfoDTO) => {
   dialogMode.value = 'edit'
-  currentMajor.value = {
-    major_uuid: major.major_uuid,
-    department_uuid: major.department_uuid,
-    major_num: major.major_num,
-    major_name: major.major_name,
+  currentClass.value = {
+    class_uuid: classItem.class_uuid,
+    major_uuid: classItem.major_info.major_uuid,
+    class_name: classItem.class_name,
   }
   showDialog.value = true
 }
 
-// 保存专业
-const saveMajor = async () => {
+// 保存班级
+const saveClass = async () => {
   // 表单验证
-  if (!currentMajor.value.major_num.trim()) {
-    error('请输入专业编号')
+  if (!currentClass.value.class_name.trim()) {
+    error('请输入班级名称')
     return
   }
-  if (!currentMajor.value.major_name.trim()) {
-    error('请输入专业名称')
-    return
-  }
-  if (!currentMajor.value.department_uuid) {
-    error('请选择所属学院')
+  if (!currentClass.value.major_uuid) {
+    error('请选择所属专业')
     return
   }
 
   try {
     if (dialogMode.value === 'add') {
-      await addMajor(currentMajor.value)
-      success('添加专业成功')
+      await addClass(currentClass.value)
+      success('添加班级成功')
     } else {
-      await updateMajor(currentMajor.value)
-      success('更新专业成功')
+      await updateClass(currentClass.value)
+      success('更新班级成功')
     }
     showDialog.value = false
-    await fetchMajors()
+    await fetchClasses({
+      class_name: searchKeyword.value || undefined,
+      major_uuid: selectedMajor.value || undefined,
+      department_uuid: selectedDepartment.value || undefined,
+    })
   } catch (err) {
-    console.error('保存专业失败:', err)
-    error('保存专业失败: ' + (err as Error).message)
+    console.error('保存班级失败:', err)
+    error('保存班级失败: ' + (err as Error).message)
   }
 }
 
-// 删除专业
-const deleteMajor = async (major_uuid: string, major_name: string) => {
-  if (!confirm(`确定要删除专业"${major_name}"吗？\n\n注意：如果该专业下有班级，删除操作将失败。`)) return
+// 删除班级
+const deleteClass = async (classUuid: string, className: string) => {
+  if (!confirm(`确定要删除班级"${className}"吗？\n\n注意：如果该班级下有学生，删除操作将失败。`)) return
 
   try {
-    await deleteMajorApi(major_uuid)
-    success('删除专业成功')
-    await fetchMajors()
+    await deleteClassApi(classUuid)
+    success('删除班级成功')
+    await fetchClasses({
+      class_name: searchKeyword.value || undefined,
+      major_uuid: selectedMajor.value || undefined,
+      department_uuid: selectedDepartment.value || undefined,
+    })
   } catch (err) {
-    console.error('删除专业失败:', err)
-    error('删除专业失败: ' + (err as Error).message)
+    console.error('删除班级失败:', err)
+    error('删除班级失败: ' + (err as Error).message)
   }
 }
 
@@ -184,20 +215,24 @@ const goBack = () => {
 
 // 页面加载时获取数据
 onMounted(async () => {
+  // 先加载学院列表
   await fetchDepartments()
+  // 再加载专业列表
   await fetchMajors()
+  // 最后加载班级列表
+  await fetchClasses()
 })
 </script>
 
 <template>
-  <div class="major-management">
+  <div class="class-management">
     <!-- 顶部导航栏 -->
     <nav class="top-navbar">
       <div class="navbar-content">
         <div class="navbar-logo" @click="goBack">
           <span class="back-icon">←</span>
-          <span class="logo-icon">📖</span>
-          <span class="logo-text">专业管理</span>
+          <span class="logo-icon">🎓</span>
+          <span class="logo-text">班级管理</span>
         </div>
       </div>
     </nav>
@@ -211,34 +246,41 @@ onMounted(async () => {
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="搜索专业名称或编号..."
+            placeholder="搜索班级名称..."
             class="search-input"
           />
         </div>
 
-        <select v-model="selectedDepartment" class="department-select" :disabled="departmentsLoading">
+        <select v-model="selectedDepartment" class="filter-select" :disabled="departmentsLoading">
           <option value="">全部学院</option>
           <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
             {{ dept.department_name }}
           </option>
         </select>
 
+        <select v-model="selectedMajor" class="filter-select" :disabled="majorsLoading">
+          <option value="">全部专业</option>
+          <option v-for="major in filteredMajors" :key="major.major_uuid" :value="major.major_uuid">
+            {{ major.major_name }}
+          </option>
+        </select>
+
         <button class="btn-primary" @click="openAddDialog">
           <span class="btn-icon">➕</span>
-          添加专业
+          添加班级
         </button>
       </div>
 
-      <!-- 专业列表 -->
+      <!-- 班级列表 -->
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner"></div>
         <p>加载中...</p>
       </div>
 
-      <div v-else-if="displayMajors.length === 0" class="empty-state">
+      <div v-else-if="classes.length === 0" class="empty-state">
         <div class="empty-icon">📭</div>
-        <h3>暂无专业数据</h3>
-        <p>点击"添加专业"按钮添加第一个专业</p>
+        <h3>暂无班级数据</h3>
+        <p>点击"添加班级"按钮添加第一个班级</p>
       </div>
 
       <!-- 数据表格 -->
@@ -246,21 +288,21 @@ onMounted(async () => {
         <table class="data-table">
           <thead>
             <tr>
-              <th>专业编号</th>
-              <th>专业名称</th>
+              <th>班级名称</th>
+              <th>所属专业</th>
               <th>所属学院</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="major in displayMajors" :key="major.major_uuid">
-              <td>{{ major.major_num }}</td>
-              <td>{{ major.major_name }}</td>
-              <td>{{ major.department_name }}</td>
+            <tr v-for="classItem in classes" :key="classItem.class_uuid">
+              <td>{{ classItem.class_name }}</td>
+              <td>{{ classItem.major_info.major_name }}</td>
+              <td>{{ classItem.major_info.department_name }}</td>
               <td>
                 <div class="action-buttons">
-                  <button class="btn-edit" @click="openEditDialog(major)">编辑</button>
-                  <button class="btn-delete" @click="deleteMajor(major.major_uuid, major.major_name)">
+                  <button class="btn-edit" @click="openEditDialog(classItem)">编辑</button>
+                  <button class="btn-delete" @click="deleteClass(classItem.class_uuid, classItem.class_name)">
                     删除
                   </button>
                 </div>
@@ -275,38 +317,42 @@ onMounted(async () => {
     <div v-if="showDialog" class="dialog-overlay" @click.self="showDialog = false">
       <div class="dialog">
         <div class="dialog-header">
-          <h3>{{ dialogMode === 'add' ? '添加专业' : '编辑专业' }}</h3>
+          <h3>{{ dialogMode === 'add' ? '添加班级' : '编辑班级' }}</h3>
           <button class="dialog-close" @click="showDialog = false">×</button>
         </div>
         <div class="dialog-body">
           <div class="form-group">
-            <label>专业编号</label>
+            <label>班级名称</label>
             <input
-              v-model="currentMajor.major_num"
+              v-model="currentClass.class_name"
               type="text"
               class="form-input"
-              placeholder="请输入专业编号"
-              :disabled="dialogMode === 'edit'"
+              placeholder="请输入班级名称"
             />
-            <small v-if="dialogMode === 'edit'" class="form-hint">专业编号不可修改</small>
           </div>
           <div class="form-group">
-            <label>专业名称</label>
-            <input v-model="currentMajor.major_name" type="text" class="form-input" placeholder="请输入专业名称" />
+            <label>所属专业</label>
+            <select v-model="currentClass.major_uuid" class="form-select">
+              <option value="">请选择专业</option>
+              <option v-for="major in majors" :key="major.major_uuid" :value="major.major_uuid">
+                {{ major.major_name }} ({{ major.department_name }})
+              </option>
+            </select>
           </div>
           <div class="form-group">
             <label>所属学院</label>
-            <select v-model="currentMajor.department_uuid" class="form-select">
-              <option value="">请选择学院</option>
-              <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
-                {{ dept.department_name }}
-              </option>
-            </select>
+            <input
+              :value="selectedMajorDepartmentName || '（选择专业后自动显示）'"
+              type="text"
+              class="form-input"
+              disabled
+            />
+            <small class="form-hint">学院根据所选专业自动显示</small>
           </div>
         </div>
         <div class="dialog-footer">
           <button class="btn-secondary" @click="showDialog = false">取消</button>
-          <button class="btn-primary" @click="saveMajor">保存</button>
+          <button class="btn-primary" @click="saveClass">保存</button>
         </div>
       </div>
     </div>
@@ -314,7 +360,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.major-management {
+.class-management {
   width: 100%;
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
@@ -418,9 +464,9 @@ onMounted(async () => {
   color: #a0aec0;
 }
 
-/* 学院下拉框 */
-.department-select {
-  min-width: 200px;
+/* 筛选下拉框 */
+.filter-select {
+  min-width: 160px;
   padding: 0.75rem 1rem;
   background: rgba(30, 30, 50, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -432,17 +478,17 @@ onMounted(async () => {
   transition: all 0.3s ease;
 }
 
-.department-select:focus {
+.filter-select:focus {
   border-color: #00d4ff;
   box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
 }
 
-.department-select:disabled {
+.filter-select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.department-select option {
+.filter-select option {
   background: #1a1a2e;
   color: #ffffff;
 }
@@ -776,8 +822,8 @@ onMounted(async () => {
     min-width: 200px;
   }
 
-  .department-select {
-    min-width: 150px;
+  .filter-select {
+    min-width: 140px;
   }
 
   .table-container {
@@ -808,7 +854,7 @@ onMounted(async () => {
     width: 100%;
   }
 
-  .department-select {
+  .filter-select {
     width: 100%;
   }
 

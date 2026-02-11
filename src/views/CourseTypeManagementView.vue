@@ -1,117 +1,125 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getDepartmentPage, addDepartment, updateDepartment, deleteDepartment } from '@/api/department'
-import type { DepartmentInfoDTO } from '@/api/types'
+import { getCourseTypePage, addCourseType, updateCourseType, deleteCourseType } from '@/api/courseType'
+import type { CourseTypeInfoDTO, AddCourseTypeVO } from '@/api/types'
 import { useMessage } from '@/composables/useMessage'
 
 const router = useRouter()
 const { success, error } = useMessage()
 
 // 响应式数据
-const departments = ref<DepartmentInfoDTO[]>([])
+const courseTypes = ref<CourseTypeInfoDTO[]>([])
 const loading = ref(false)
 const searchKeyword = ref('')
 const showDialog = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
+
+// 分页数据
 const currentPage = ref(1)
-const pageSize = ref(1000) // 获取大部分数据，避免复杂分页
+const pageSize = ref(100)
 const total = ref(0)
 
-// 当前编辑的学院
-const currentDepartment = ref<{
-  department_uuid: string
-  department_name: string
-}>({
-  department_uuid: '',
-  department_name: '',
+// 当前编辑的课程类型
+const currentCourseType = ref<AddCourseTypeVO>({
+  course_type_uuid: '',
+  course_type_name: '',
 })
 
-// 计算属性：显示的学院列表
-const displayDepartments = computed(() => departments.value)
+// 计算属性：显示的课程类型列表
+const displayCourseTypes = computed(() => courseTypes.value)
 
-// 获取学院列表
-const fetchDepartments = async (departmentName?: string) => {
+// 获取课程类型列表
+const fetchCourseTypes = async (params?: { course_type_name?: string }) => {
   loading.value = true
   try {
-    const response = await getDepartmentPage({
+    const response = await getCourseTypePage({
       page: currentPage.value,
       size: pageSize.value,
-      department_name: departmentName || undefined,
+      ...params,
     })
-    departments.value = response.records
+    courseTypes.value = response.records
     total.value = response.total
   } catch (err) {
-    console.error('获取学院列表失败:', err)
-    error('获取学院列表失败: ' + (err as Error).message)
+    console.error('获取课程类型列表失败:', err)
+    error('获取课程类型列表失败: ' + (err as Error).message)
   } finally {
     loading.value = false
   }
 }
 
-// 监听搜索关键词，使用防抖
+// 搜索防抖
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchKeyword, (newKeyword) => {
   if (searchTimer) {
     clearTimeout(searchTimer)
   }
   searchTimer = setTimeout(() => {
-    fetchDepartments(newKeyword || undefined)
+    fetchCourseTypes({
+      course_type_name: newKeyword || undefined,
+    })
   }, 500)
 })
 
 // 打开添加对话框
 const openAddDialog = () => {
   dialogMode.value = 'add'
-  currentDepartment.value = {
-    department_uuid: '',
-    department_name: '',
+  currentCourseType.value = {
+    course_type_uuid: '',
+    course_type_name: '',
   }
   showDialog.value = true
 }
 
 // 打开编辑对话框
-const openEditDialog = (department: DepartmentInfoDTO) => {
+const openEditDialog = (courseType: CourseTypeInfoDTO) => {
   dialogMode.value = 'edit'
-  currentDepartment.value = { ...department }
+  currentCourseType.value = {
+    course_type_uuid: courseType.course_type_uuid,
+    course_type_name: courseType.type_name,
+  }
   showDialog.value = true
 }
 
-// 保存学院
-const saveDepartment = async () => {
+// 保存课程类型
+const saveCourseType = async () => {
   // 表单验证
-  if (!currentDepartment.value.department_name.trim()) {
-    error('请输入学院名称')
+  if (!currentCourseType.value.course_type_name.trim()) {
+    error('请输入课程类型名称')
     return
   }
 
   try {
     if (dialogMode.value === 'add') {
-      await addDepartment(currentDepartment.value.department_name)
-      success('添加学院成功')
+      await addCourseType(currentCourseType.value)
+      success('添加课程类型成功')
     } else {
-      await updateDepartment(currentDepartment.value.department_uuid, currentDepartment.value.department_name)
-      success('更新学院成功')
+      await updateCourseType(currentCourseType.value)
+      success('更新课程类型成功')
     }
     showDialog.value = false
-    await fetchDepartments()
+    await fetchCourseTypes({
+      course_type_name: searchKeyword.value || undefined,
+    })
   } catch (err) {
-    console.error('保存学院失败:', err)
-    error('保存学院失败: ' + (err as Error).message)
+    console.error('保存课程类型失败:', err)
+    error('保存课程类型失败: ' + (err as Error).message)
   }
 }
 
-// 删除学院
-const deleteDepartmentItem = async (departmentUuid: string, departmentName: string) => {
-  if (!confirm(`确定要删除学院"${departmentName}"吗？`)) return
+// 删除课程类型
+const deleteType = async (courseTypeUuid: string, typeName: string) => {
+  if (!confirm(`确定要删除课程类型"${typeName}"吗？\n\n注意：如果该课程类型下有课程，删除操作将失败。`)) return
 
   try {
-    await deleteDepartment(departmentUuid)
-    success('删除学院成功')
-    await fetchDepartments()
+    await deleteCourseType(courseTypeUuid)
+    success('删除课程类型成功')
+    await fetchCourseTypes({
+      course_type_name: searchKeyword.value || undefined,
+    })
   } catch (err) {
-    console.error('删除学院失败:', err)
-    error('删除学院失败: ' + (err as Error).message)
+    console.error('删除课程类型失败:', err)
+    error('删除课程类型失败: ' + (err as Error).message)
   }
 }
 
@@ -121,20 +129,20 @@ const goBack = () => {
 }
 
 // 页面加载时获取数据
-onMounted(() => {
-  fetchDepartments()
+onMounted(async () => {
+  await fetchCourseTypes()
 })
 </script>
 
 <template>
-  <div class="college-management">
+  <div class="course-type-management">
     <!-- 顶部导航栏 -->
     <nav class="top-navbar">
       <div class="navbar-content">
         <div class="navbar-logo" @click="goBack">
           <span class="back-icon">←</span>
-          <span class="logo-icon">🏛️</span>
-          <span class="logo-text">学院管理</span>
+          <span class="logo-icon">🏷️</span>
+          <span class="logo-text">课程类型管理</span>
         </div>
       </div>
     </nav>
@@ -148,45 +156,48 @@ onMounted(() => {
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="搜索学院名称..."
+            placeholder="搜索课程类型名称..."
             class="search-input"
           />
         </div>
+
         <button class="btn-primary" @click="openAddDialog">
           <span class="btn-icon">➕</span>
-          添加学院
+          添加课程类型
         </button>
       </div>
 
-      <!-- 学院列表 -->
+      <!-- 课程类型列表 -->
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner"></div>
         <p>加载中...</p>
       </div>
 
-      <div v-else-if="displayDepartments.length === 0" class="empty-state">
-        <div class="empty-icon">🏛️</div>
-        <h3>暂无学院数据</h3>
-        <p>点击"添加学院"按钮添加第一个学院</p>
+      <div v-else-if="courseTypes.length === 0" class="empty-state">
+        <div class="empty-icon">🏷️</div>
+        <h3>暂无课程类型数据</h3>
+        <p>点击"添加课程类型"按钮添加第一个课程类型</p>
       </div>
 
-      <div v-else class="department-grid">
-        <div v-for="dept in displayDepartments" :key="dept.department_uuid" class="department-card">
+      <!-- 卡片网格 -->
+      <div v-else class="course-type-grid">
+        <div v-for="type in displayCourseTypes" :key="type.course_type_uuid" class="course-type-card">
           <div class="card-header">
-            <div class="department-avatar">
-              {{ dept.department_name.charAt(0) }}
+            <div class="course-type-avatar">
+              {{ type.type_name.charAt(0) }}
             </div>
-            <div class="department-info">
-              <h3 class="department-name">{{ dept.department_name }}</h3>
+            <div class="course-type-info">
+              <h3 class="course-type-name">{{ type.type_name }}</h3>
+              <p class="course-type-description">{{ type.type_description || '暂无描述' }}</p>
             </div>
           </div>
 
           <div class="card-footer">
-            <button class="btn-edit" @click="openEditDialog(dept)">
+            <button class="btn-edit" @click="openEditDialog(type)">
               <span class="btn-icon">✏️</span>
               编辑
             </button>
-            <button class="btn-delete" @click="deleteDepartmentItem(dept.department_uuid, dept.department_name)">
+            <button class="btn-delete" @click="deleteType(type.course_type_uuid, type.type_name)">
               <span class="btn-icon">🗑️</span>
               删除
             </button>
@@ -199,27 +210,25 @@ onMounted(() => {
     <div v-if="showDialog" class="dialog-overlay" @click.self="showDialog = false">
       <div class="dialog">
         <div class="dialog-header">
-          <h2>{{ dialogMode === 'add' ? '添加学院' : '编辑学院' }}</h2>
+          <h3>{{ dialogMode === 'add' ? '添加课程类型' : '编辑课程类型' }}</h3>
           <button class="dialog-close" @click="showDialog = false">×</button>
         </div>
-
         <div class="dialog-body">
           <div class="form-group">
-            <label class="form-label">学院名称 *</label>
+            <label class="form-label">课程类型名称</label>
             <input
-              v-model="currentDepartment.department_name"
+              v-model="currentCourseType.course_type_name"
               type="text"
               class="form-input"
-              placeholder="请输入学院名称"
+              placeholder="请输入课程类型名称"
               maxlength="50"
             />
-            <small class="form-hint">学院名称必须唯一</small>
+            <small class="form-hint">例如：必修课、选修课、实践课等</small>
           </div>
         </div>
-
         <div class="dialog-footer">
           <button class="btn-secondary" @click="showDialog = false">取消</button>
-          <button class="btn-primary" @click="saveDepartment">保存</button>
+          <button class="btn-primary" @click="saveCourseType">保存</button>
         </div>
       </div>
     </div>
@@ -227,7 +236,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.college-management {
+.course-type-management {
+  width: 100%;
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
 }
@@ -291,9 +301,9 @@ onMounted(() => {
 /* 操作栏 */
 .action-bar {
   display: flex;
+  align-items: center;
   gap: 1rem;
   margin-bottom: 2rem;
-  align-items: center;
 }
 
 .search-box {
@@ -307,6 +317,11 @@ onMounted(() => {
   padding: 0.75rem 1rem;
 }
 
+.search-box:focus-within {
+  border-color: rgba(0, 212, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+}
+
 .search-icon {
   font-size: 1.2rem;
   margin-right: 0.75rem;
@@ -316,13 +331,13 @@ onMounted(() => {
   flex: 1;
   background: transparent;
   border: none;
+  outline: none;
   color: #ffffff;
   font-size: 1rem;
-  outline: none;
 }
 
 .search-input::placeholder {
-  color: rgba(160, 174, 192, 0.6);
+  color: #a0aec0;
 }
 
 /* 按钮样式 */
@@ -332,13 +347,14 @@ onMounted(() => {
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
-  color: white;
   border: none;
   border-radius: 12px;
+  color: white;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .btn-primary:hover {
@@ -346,15 +362,16 @@ onMounted(() => {
   box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
 }
 
+.btn-icon {
+  font-size: 1.1rem;
+}
+
 .btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  background: transparent;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -362,12 +379,8 @@ onMounted(() => {
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-.btn-icon {
-  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 /* 加载和空状态 */
@@ -405,14 +418,14 @@ onMounted(() => {
   margin-bottom: 0.5rem;
 }
 
-/* 学院卡片网格 */
-.department-grid {
+/* 课程类型卡片网格 */
+.course-type-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
 }
 
-.department-card {
+.course-type-card {
   background: linear-gradient(135deg, rgba(30, 30, 50, 0.8) 0%, rgba(40, 40, 70, 0.8) 100%);
   backdrop-filter: blur(10px);
   border-radius: 20px;
@@ -421,10 +434,10 @@ onMounted(() => {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.department-card:hover {
+.course-type-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 15px 40px rgba(0, 212, 255, 0.15);
-  border-color: rgba(0, 212, 255, 0.3);
+  box-shadow: 0 15px 40px rgba(139, 195, 74, 0.15);
+  border-color: rgba(139, 195, 74, 0.3);
 }
 
 .card-header {
@@ -434,11 +447,11 @@ onMounted(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.department-avatar {
+.course-type-avatar {
   width: 60px;
   height: 60px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #FF5722 0%, #FF9800 100%);
+  background: linear-gradient(135deg, #8BC34A 0%, #689F38 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -448,15 +461,21 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.department-info {
+.course-type-info {
   flex: 1;
 }
 
-.department-name {
+.course-type-name {
   font-size: 1.25rem;
   font-weight: 600;
   color: #ffffff;
-  margin-bottom: 0;
+  margin-bottom: 0.5rem;
+}
+
+.course-type-description {
+  font-size: 0.9rem;
+  color: #a0aec0;
+  margin: 0;
 }
 
 .card-footer {
@@ -467,6 +486,7 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.2);
 }
 
+/* 操作按钮和卡片样式 */
 .btn-edit,
 .btn-delete {
   flex: 1;
@@ -518,59 +538,90 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 2rem;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .dialog {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(30, 30, 50, 0.95) 0%, rgba(40, 40, 70, 0.95) 100%);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  width: 100%;
-  max-width: 600px;
+  width: 90%;
+  max-width: 500px;
   max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .dialog-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
+  justify-content: space-between;
+  padding: 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.dialog-header h2 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #ffffff;
+.dialog-header h3 {
   margin: 0;
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 .dialog-close {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: transparent;
   border: none;
-  color: #ffffff;
-  font-size: 1.5rem;
+  color: #a0aec0;
+  font-size: 2rem;
   cursor: pointer;
   transition: all 0.3s ease;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .dialog-close:hover {
-  background: rgba(244, 67, 54, 0.3);
+  color: #ffffff;
   transform: rotate(90deg);
 }
 
 .dialog-body {
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 表单样式 */
 .form-group {
   margin-bottom: 1.5rem;
 }
@@ -590,7 +641,8 @@ onMounted(() => {
   margin-top: 0.25rem;
 }
 
-.form-input {
+.form-input,
+.form-select {
   width: 100%;
   padding: 0.75rem 1rem;
   background: rgba(30, 30, 50, 0.8);
@@ -602,17 +654,25 @@ onMounted(() => {
   outline: none;
 }
 
-.form-input:focus {
-  border-color: #00d4ff;
-  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+.form-input:focus,
+.form-select:focus {
+  border-color: #8BC34A;
+  box-shadow: 0 0 0 3px rgba(139, 195, 74, 0.1);
 }
 
-.dialog-footer {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  padding: 1.5rem 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+.form-input:disabled {
+  background: rgba(30, 30, 50, 0.4);
+  color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.form-input::placeholder {
+  color: #a0aec0;
+}
+
+.form-select option {
+  background: #1a1a2e;
+  color: #ffffff;
 }
 
 /* 响应式设计 */
@@ -622,7 +682,7 @@ onMounted(() => {
     padding: 1rem 2rem;
   }
 
-  .department-grid {
+  .course-type-grid {
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   }
 }
@@ -646,13 +706,14 @@ onMounted(() => {
     justify-content: center;
   }
 
-  .department-grid {
+  .course-type-grid {
     grid-template-columns: 1fr;
   }
 
   .dialog {
+    width: 95%;
     margin: 1rem;
-    max-height: calc(100vh - 2rem);
+    max-height: calc(90vh - 2rem);
   }
 
   .dialog-header,

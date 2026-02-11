@@ -1,66 +1,118 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { getTeacherPage, addTeacher, updateTeacher, deleteTeacher as deleteTeacherApi } from '@/api/teacher'
+import { getDepartmentPage } from '@/api/department'
+import type { TeacherInfoDTO, AddTeacherVO } from '@/api/types'
+import { useMessage } from '@/composables/useMessage'
+import { formatLikeTime, parseLikeTime, serializeLikeTime, toggleTimeSlot, isTimeSlotSelected, WEEKDAY_MAP } from '@/utils/timePreference'
 
 const router = useRouter()
-
-// 教师数据类型定义
-interface Teacher {
-  teacher_uuid: string
-  teacher_num: string
-  teacher_name: string
-  title: string
-  max_hours_per_week: number
-  is_active: boolean
-  like_time: string
-  department?: string
-  email?: string
-  phone?: string
-}
+const { success, error } = useMessage()
 
 // 响应式数据
-const teachers = ref<Teacher[]>([])
+const teachers = ref<TeacherInfoDTO[]>([])
+const departments = ref<{ department_uuid: string; department_name: string }[]>([])
 const loading = ref(false)
+const departmentsLoading = ref(false)
 const searchKeyword = ref('')
+const selectedDepartment = ref<string>('')
 const showDialog = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
-const currentTeacher = ref<Teacher>({
+
+// 分页数据
+const currentPage = ref(1)
+const pageSize = ref(100)
+const total = ref(0)
+
+// 当前编辑的教师
+const currentTeacher = ref<AddTeacherVO>({
   teacher_uuid: '',
   teacher_num: '',
   teacher_name: '',
   title: '',
+  department_uuid: '',
+  teacher_password: '',
   max_hours_per_week: 20,
-  is_active: true,
   like_time: '',
-  department: '',
-  email: '',
-  phone: '',
+  is_active: true,
 })
 
-// 计算属性：过滤后的教师列表
-const filteredTeachers = computed(() => {
-  if (!searchKeyword.value) return teachers.value
-  const keyword = searchKeyword.value.toLowerCase()
-  return teachers.value.filter(
-    (teacher) =>
-      teacher.teacher_name.toLowerCase().includes(keyword) ||
-      teacher.teacher_num.toLowerCase().includes(keyword) ||
-      teacher.title.toLowerCase().includes(keyword),
-  )
-})
+// 时间选择器相关状态
+const showTimePicker = ref(false)
+const tempTimeSelection = ref<Map<number, number[]>>(new Map())
+const periods = Array.from({ length: 12 }, (_, i) => i + 1)
+const weekdays = Array.from({ length: 7 }, (_, i) => i + 1)
+
+// 获取学院列表（用于下拉选择）
+const fetchDepartments = async () => {
+  departmentsLoading.value = true
+  try {
+    const response = await getDepartmentPage({
+      page: 1,
+      size: 1000,
+    })
+    departments.value = response.records
+  } catch (err) {
+    console.error('获取学院列表失败:', err)
+    error('获取学院列表失败: ' + (err as Error).message)
+  } finally {
+    departmentsLoading.value = false
+  }
+}
 
 // 获取教师列表
-const fetchTeachers = async () => {
+const fetchTeachers = async (params?: { teacher_name?: string; teacher_num?: string; department_uuid?: string }) => {
   loading.value = true
   try {
-    // TODO: 替换为实际的 API 调用
-    teachers.value = []
-  } catch (error) {
-    console.error('获取教师列表失败:', error)
+    const response = await getTeacherPage({
+      page: currentPage.value,
+      size: pageSize.value,
+      ...params,
+    })
+    teachers.value = response.records
+    total.value = response.total
+  } catch (err) {
+    console.error('获取教师列表失败:', err)
+    error('获取教师列表失败: ' + (err as Error).message)
   } finally {
     loading.value = false
   }
 }
+
+// 计算属性：显示的教师列表
+const displayTeachers = computed(() => teachers.value)
+
+// 搜索防抖
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchKeyword, (newKeyword) => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    if (newKeyword) {
+      // 智能判断：数字字母优先按工号搜索，中文按姓名搜索
+      const hasAlphaNumeric = /[a-zA-Z0-9]/.test(newKeyword)
+
+      fetchTeachers(
+        hasAlphaNumeric
+          ? { teacher_num: newKeyword, department_uuid: selectedDepartment.value || undefined }
+          : { teacher_name: newKeyword, department_uuid: selectedDepartment.value || undefined }
+      )
+    } else {
+      // 清空搜索时重新加载全部数据
+      fetchTeachers({ department_uuid: selectedDepartment.value || undefined })
+    }
+  }, 500)
+})
+
+// 监听学院筛选
+watch(selectedDepartment, (newDeptUuid) => {
+  fetchTeachers({
+    teacher_name: searchKeyword.value || undefined,
+    department_uuid: newDeptUuid || undefined,
+  })
+})
 
 // 打开添加对话框
 const openAddDialog = () => {
@@ -70,49 +122,87 @@ const openAddDialog = () => {
     teacher_num: '',
     teacher_name: '',
     title: '',
+    department_uuid: '',
+    teacher_password: '',
     max_hours_per_week: 20,
-    is_active: true,
     like_time: '',
-    department: '',
-    email: '',
-    phone: '',
+    is_active: true,
   }
   showDialog.value = true
 }
 
 // 打开编辑对话框
-const openEditDialog = (teacher: Teacher) => {
+const openEditDialog = (teacher: TeacherInfoDTO) => {
   dialogMode.value = 'edit'
-  currentTeacher.value = { ...teacher }
+  currentTeacher.value = {
+    teacher_uuid: teacher.teacher_uuid,
+    teacher_num: teacher.teacher_num,
+    teacher_name: teacher.teacher_name,
+    title: teacher.title,
+    department_uuid: teacher.department_info.department_uuid,
+    teacher_password: '',
+    max_hours_per_week: teacher.max_hours_per_week,
+    like_time: teacher.like_time,
+    is_active: teacher.is_active,
+  }
   showDialog.value = true
 }
 
 // 保存教师
 const saveTeacher = async () => {
+  // 表单验证
+  if (!currentTeacher.value.teacher_num.trim()) {
+    error('请输入教师工号')
+    return
+  }
+  if (!currentTeacher.value.teacher_name.trim()) {
+    error('请输入教师姓名')
+    return
+  }
+  if (!currentTeacher.value.title.trim()) {
+    error('请选择职称')
+    return
+  }
+  if (!currentTeacher.value.department_uuid) {
+    error('请选择所属学院')
+    return
+  }
+  if (dialogMode.value === 'add' && !currentTeacher.value.teacher_password?.trim()) {
+    error('请输入密码')
+    return
+  }
+  if (currentTeacher.value.max_hours_per_week < 0 || currentTeacher.value.max_hours_per_week > 40) {
+    error('每周课时应在 0-40 之间')
+    return
+  }
+
   try {
-    // TODO: 替换为实际的 API 调用
     if (dialogMode.value === 'add') {
-      console.log('添加教师:', currentTeacher.value)
+      await addTeacher(currentTeacher.value)
+      success('添加教师成功')
     } else {
-      console.log('更新教师:', currentTeacher.value)
+      await updateTeacher(currentTeacher.value)
+      success('更新教师成功')
     }
     showDialog.value = false
     await fetchTeachers()
-  } catch (error) {
-    console.error('保存教师失败:', error)
+  } catch (err) {
+    console.error('保存教师失败:', err)
+    error('保存教师失败: ' + (err as Error).message)
   }
 }
 
 // 删除教师
-const deleteTeacher = async (teacher_uuid: string) => {
-  if (!confirm('确定要删除该教师吗？')) return
+const deleteTeacher = async (teacher_uuid: string, teacher_name: string) => {
+  if (!confirm(`确定要删除教师"${teacher_name}"吗？`)) return
 
   try {
-    // TODO: 替换为实际的 API 调用
-    console.log('删除教师:', teacher_uuid)
+    await deleteTeacherApi(teacher_uuid)
+    success('删除教师成功')
     await fetchTeachers()
-  } catch (error) {
-    console.error('删除教师失败:', error)
+  } catch (err) {
+    console.error('删除教师失败:', err)
+    error('删除教师失败: ' + (err as Error).message)
   }
 }
 
@@ -131,8 +221,38 @@ const getStatusClass = (isActive: boolean) => {
   return isActive ? 'status-active' : 'status-inactive'
 }
 
+// 时间选择器相关函数
+const openTimePicker = () => {
+  tempTimeSelection.value = parseLikeTime(currentTeacher.value.like_time)
+  showTimePicker.value = true
+}
+
+const handleToggleTimeSlot = (day: number, period: number) => {
+  tempTimeSelection.value = toggleTimeSlot(tempTimeSelection.value, day, period)
+}
+
+const confirmTimeSelection = () => {
+  currentTeacher.value.like_time = serializeLikeTime(tempTimeSelection.value)
+  showTimePicker.value = false
+}
+
+const cancelTimeSelection = () => {
+  showTimePicker.value = false
+  tempTimeSelection.value = new Map()
+}
+
+const clearTimeSelection = () => {
+  tempTimeSelection.value = new Map()
+}
+
+// 计算当前选择的时间描述
+const currentTimeDescription = computed(() => {
+  return formatLikeTime(serializeLikeTime(tempTimeSelection.value))
+})
+
 // 页面加载时获取数据
 onMounted(() => {
+  fetchDepartments()
   fetchTeachers()
 })
 </script>
@@ -159,10 +279,18 @@ onMounted(() => {
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="搜索教师姓名、工号或职称..."
+            placeholder="搜索教师姓名或工号..."
             class="search-input"
           />
         </div>
+
+        <select v-model="selectedDepartment" class="department-select">
+          <option value="">全部学院</option>
+          <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
+            {{ dept.department_name }}
+          </option>
+        </select>
+
         <button class="btn-primary" @click="openAddDialog">
           <span class="btn-icon">➕</span>
           添加教师
@@ -175,14 +303,14 @@ onMounted(() => {
         <p>加载中...</p>
       </div>
 
-      <div v-else-if="filteredTeachers.length === 0" class="empty-state">
+      <div v-else-if="displayTeachers.length === 0" class="empty-state">
         <div class="empty-icon">📭</div>
         <h3>暂无教师数据</h3>
         <p>点击"添加教师"按钮添加第一位教师</p>
       </div>
 
       <div v-else class="teacher-grid">
-        <div v-for="teacher in filteredTeachers" :key="teacher.teacher_uuid" class="teacher-card">
+        <div v-for="teacher in displayTeachers" :key="teacher.teacher_uuid" class="teacher-card">
           <div class="card-header">
             <div class="teacher-avatar">
               {{ teacher.teacher_name.charAt(0) }}
@@ -202,8 +330,8 @@ onMounted(() => {
               <span class="info-value">{{ teacher.teacher_num }}</span>
             </div>
             <div class="info-row">
-              <span class="info-label">部门</span>
-              <span class="info-value">{{ teacher.department || '未设置' }}</span>
+              <span class="info-label">所属学院</span>
+              <span class="info-value">{{ teacher.department_info.department_name }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">周课时</span>
@@ -211,15 +339,7 @@ onMounted(() => {
             </div>
             <div class="info-row">
               <span class="info-label">偏好时间</span>
-              <span class="info-value">{{ teacher.like_time || '未设置' }}</span>
-            </div>
-            <div v-if="teacher.email" class="info-row">
-              <span class="info-label">邮箱</span>
-              <span class="info-value">{{ teacher.email }}</span>
-            </div>
-            <div v-if="teacher.phone" class="info-row">
-              <span class="info-label">电话</span>
-              <span class="info-value">{{ teacher.phone }}</span>
+              <span class="info-value">{{ formatLikeTime(teacher.like_time) }}</span>
             </div>
           </div>
 
@@ -228,7 +348,7 @@ onMounted(() => {
               <span class="btn-icon">✏️</span>
               编辑
             </button>
-            <button class="btn-delete" @click="deleteTeacher(teacher.teacher_uuid)">
+            <button class="btn-delete" @click="deleteTeacher(teacher.teacher_uuid, teacher.teacher_name)">
               <span class="btn-icon">🗑️</span>
               删除
             </button>
@@ -248,7 +368,14 @@ onMounted(() => {
         <div class="dialog-body">
           <div class="form-group">
             <label class="form-label">工号 *</label>
-            <input v-model="currentTeacher.teacher_num" type="text" class="form-input" placeholder="请输入工号" />
+            <input
+              v-model="currentTeacher.teacher_num"
+              type="text"
+              class="form-input"
+              placeholder="请输入工号"
+              :disabled="dialogMode === 'edit'"
+            />
+            <small v-if="dialogMode === 'edit'" class="form-hint">工号不可修改</small>
           </div>
 
           <div class="form-group">
@@ -268,8 +395,18 @@ onMounted(() => {
           </div>
 
           <div class="form-group">
-            <label class="form-label">部门</label>
-            <input v-model="currentTeacher.department" type="text" class="form-input" placeholder="请输入部门" />
+            <label class="form-label">所属学院 *</label>
+            <select v-model="currentTeacher.department_uuid" class="form-input">
+              <option value="">请选择学院</option>
+              <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
+                {{ dept.department_name }}
+              </option>
+            </select>
+          </div>
+
+          <div v-if="dialogMode === 'add'" class="form-group">
+            <label class="form-label">密码 *</label>
+            <input v-model="currentTeacher.teacher_password" type="password" class="form-input" placeholder="请输入密码" />
           </div>
 
           <div class="form-group">
@@ -279,17 +416,11 @@ onMounted(() => {
 
           <div class="form-group">
             <label class="form-label">授课偏好时间</label>
-            <textarea v-model="currentTeacher.like_time" class="form-textarea" placeholder="例如：周一、周三、周五上午" rows="3"></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">邮箱</label>
-            <input v-model="currentTeacher.email" type="email" class="form-input" placeholder="请输入邮箱" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">电话</label>
-            <input v-model="currentTeacher.phone" type="tel" class="form-input" placeholder="请输入电话" />
+            <div class="time-selector-trigger" @click="openTimePicker">
+              <span class="time-display">{{ formatLikeTime(currentTeacher.like_time) }}</span>
+              <span class="time-selector-arrow">▾</span>
+            </div>
+            <small class="form-hint">点击选择教师偏好的授课时间</small>
           </div>
 
           <div class="form-group">
@@ -304,6 +435,64 @@ onMounted(() => {
         <div class="dialog-footer">
           <button class="btn-secondary" @click="showDialog = false">取消</button>
           <button class="btn-primary" @click="saveTeacher">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 时间选择器对话框 -->
+    <div v-if="showTimePicker" class="time-picker-overlay" @click.self="cancelTimeSelection">
+      <div class="time-picker-dialog">
+        <div class="time-picker-header">
+          <h2>选择授课偏好时间</h2>
+          <button class="dialog-close" @click="cancelTimeSelection">×</button>
+        </div>
+
+        <div class="time-picker-body">
+          <!-- 操作提示 -->
+          <div class="time-picker-hint">
+            <span class="hint-icon">💡</span>
+            <span>点击网格选择或取消时间段，可多选</span>
+            <button class="btn-clear" @click="clearTimeSelection">清空全部</button>
+          </div>
+
+          <!-- 时间网格：7天×12节 -->
+          <div class="time-grid">
+            <!-- 表头：节次 -->
+            <div class="grid-header">
+              <div class="grid-corner"></div>
+              <div v-for="period in periods" :key="period" class="grid-period-header">
+                {{ period }}
+              </div>
+            </div>
+
+            <!-- 表体：周几 -->
+            <div v-for="day in weekdays" :key="day" class="grid-row">
+              <div class="grid-day-header">
+                {{ WEEKDAY_MAP[day] }}
+              </div>
+              <div
+                v-for="period in periods"
+                :key="`${day}-${period}`"
+                :class="['grid-cell', {
+                  'grid-cell-selected': isTimeSlotSelected(tempTimeSelection, day, period)
+                }]"
+                @click="handleToggleTimeSlot(day, period)"
+              >
+                {{ isTimeSlotSelected(tempTimeSelection, day, period) ? '✓' : '' }}
+              </div>
+            </div>
+          </div>
+
+          <!-- 预览当前选择 -->
+          <div class="selection-preview">
+            <span class="preview-label">已选择：</span>
+            <span class="preview-value">{{ currentTimeDescription }}</span>
+          </div>
+        </div>
+
+        <div class="time-picker-footer">
+          <button class="btn-secondary" @click="cancelTimeSelection">取消</button>
+          <button class="btn-primary" @click="confirmTimeSelection">确定</button>
         </div>
       </div>
     </div>
@@ -407,6 +596,28 @@ onMounted(() => {
 
 .search-input::placeholder {
   color: rgba(160, 174, 192, 0.6);
+}
+
+.department-select {
+  min-width: 200px;
+  padding: 0.75rem 1rem;
+  background: rgba(30, 30, 50, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 1rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.department-select:focus {
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+}
+
+.department-select option {
+  background: #1a1a2e;
+  color: #ffffff;
 }
 
 /* 按钮样式 */
@@ -720,6 +931,13 @@ onMounted(() => {
   font-size: 0.95rem;
 }
 
+.form-hint {
+  display: block;
+  color: #a0aec0;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
 .form-input,
 .form-textarea {
   width: 100%;
@@ -731,6 +949,12 @@ onMounted(() => {
   font-size: 1rem;
   transition: all 0.3s ease;
   outline: none;
+}
+
+.form-input:disabled {
+  background: rgba(30, 30, 50, 0.4);
+  color: #a0aec0;
+  cursor: not-allowed;
 }
 
 .form-input:focus,
@@ -792,6 +1016,10 @@ onMounted(() => {
     width: 100%;
   }
 
+  .department-select {
+    width: 100%;
+  }
+
   .btn-primary {
     width: 100%;
     justify-content: center;
@@ -812,4 +1040,294 @@ onMounted(() => {
     padding: 1.5rem;
   }
 }
+
+/* 时间选择器触发器 */
+.time-selector-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(30, 30, 50, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.time-selector-trigger:hover {
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+}
+
+.time-display {
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.time-selector-arrow {
+  color: #a0aec0;
+  font-size: 0.875rem;
+  transition: transform 0.3s ease;
+}
+
+.time-selector-trigger:hover .time-selector-arrow {
+  transform: rotate(180deg);
+  color: #00d4ff;
+}
+
+/* 时间选择器对话框 */
+.time-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 2rem;
+}
+
+.time-picker-dialog {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.time-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.time-picker-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.time-picker-body {
+  padding: 2rem;
+}
+
+.time-picker-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(0, 212, 255, 0.05);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.hint-icon {
+  font-size: 1.25rem;
+}
+
+.time-picker-hint span:nth-child(2) {
+  flex: 1;
+  color: #a0aec0;
+  font-size: 0.95rem;
+}
+
+.btn-clear {
+  padding: 0.5rem 1rem;
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-clear:hover {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.5);
+}
+
+/* 时间网格 */
+.time-grid {
+  display: grid;
+  grid-template-columns: 80px repeat(12, 1fr);
+  gap: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.grid-header {
+  display: contents;
+}
+
+.grid-corner {
+  grid-column: 1;
+}
+
+.grid-period-header {
+  text-align: center;
+  padding: 0.5rem;
+  color: #a0aec0;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.grid-row {
+  display: contents;
+}
+
+.grid-day-header {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.grid-cell {
+  aspect-ratio: 1;
+  min-width: 40px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 30, 50, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  color: #a0aec0;
+  user-select: none;
+}
+
+.grid-cell:hover {
+  transform: scale(1.05);
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+}
+
+.grid-cell-selected {
+  background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+  border-color: transparent;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+}
+
+.grid-cell-selected:hover {
+  box-shadow: 0 6px 16px rgba(0, 212, 255, 0.5);
+}
+
+/* 选择预览 */
+.selection-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: rgba(30, 30, 50, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.preview-label {
+  color: #a0aec0;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.preview-value {
+  flex: 1;
+  color: #00d4ff;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.time-picker-footer {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding: 1.5rem 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 时间选择器响应式 */
+@media (max-width: 1200px) {
+  .time-grid {
+    gap: 4px;
+  }
+
+  .grid-cell {
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 0.8rem;
+  }
+
+  .grid-day-header,
+  .grid-period-header {
+    font-size: 0.75rem;
+    padding: 0.4rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .time-picker-dialog {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+  }
+
+  .time-picker-header,
+  .time-picker-body,
+  .time-picker-footer {
+    padding: 1.5rem;
+  }
+
+  .time-grid {
+    overflow-x: auto;
+    padding-bottom: 1rem;
+  }
+
+  .time-picker-hint {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .time-picker-hint span:nth-child(2) {
+    width: 100%;
+  }
+
+  .btn-clear {
+    width: 100%;
+  }
+
+  .selection-preview {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .time-picker-footer {
+    flex-direction: column-reverse;
+  }
+
+  .time-picker-footer button {
+    width: 100%;
+  }
+}
+
 </style>

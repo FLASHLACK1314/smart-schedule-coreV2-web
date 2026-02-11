@@ -149,3 +149,165 @@ export interface ClassroomTypePageQuery {
   size: number
   classroom_type_name?: string
 }
+
+// ========== 学院相关类型 ==========
+
+// 学院信息
+export interface DepartmentInfoDTO {
+  department_uuid: string
+  department_name: string
+}
+
+// 添加/更新学院请求
+export interface AddDepartmentVO {
+  department_uuid?: string
+  department_name: string
+}
+
+// 学院分页查询参数
+export interface DepartmentPageQuery {
+  page: number
+  size: number
+  department_name?: string
+}
+
+// ========== 教师相关类型 ==========
+
+// 教师信息
+export interface TeacherInfoDTO {
+  teacher_uuid: string
+  teacher_num: string
+  teacher_name: string
+  title: string
+  max_hours_per_week: number
+  like_time: string
+  is_active: boolean
+  department_info: DepartmentInfoDTO
+}
+
+// 添加/更新教师请求
+export interface AddTeacherVO {
+  teacher_uuid?: string
+  teacher_num: string
+  teacher_name: string
+  title: string
+  department_uuid: string
+  teacher_password?: string
+  max_hours_per_week: number
+  like_time: string
+  is_active: boolean
+}
+
+// 教师分页查询参数
+export interface TeacherPageQuery {
+  page: number
+  size: number
+  teacher_name?: string
+  teacher_num?: string
+  department_uuid?: string
+}
+
+// ========== 专业相关类型 ==========
+
+// 专业信息
+export interface MajorInfoDTO {
+  major_uuid: string
+  department_uuid: string
+  department_name: string
+  major_num: string
+  major_name: string
+}
+
+// 添加/更新专业请求
+export interface AddMajorVO {
+  major_uuid?: string  // 更新时需要
+  department_uuid: string
+  major_num: string
+  major_name: string
+}
+
+// 专业分页查询参数
+export interface MajorPageQuery {
+  page: number
+  size: number
+  department_uuid?: string  // 学院UUID（精确查询）
+  major_num?: string        // 专业编号（模糊查询）
+  major_name?: string       // 专业名称（模糊查询）
+}
+
+// ========== 班级相关类型 ==========
+
+// 班级信息（后端返回的 major_info 是嵌套对象）
+export interface ClassInfoDTO {
+  class_uuid: string
+  class_name: string
+  major_info: MajorInfoDTO  // 复用已有的专业类型
+}
+
+// 添加/更新班级请求
+export interface AddClassVO {
+  class_uuid?: string  // 更新时需要
+  major_uuid: string
+  class_name: string
+}
+
+// 班级分页查询参数
+export interface ClassPageQuery {
+  page: number
+  size: number
+  class_name?: string       // 班级名称（模糊查询）
+  major_uuid?: string       // 专业UUID（精确查询）
+  department_uuid?: string  // 学院UUID（精确查询）
+}
+
+// ========== 课程类型相关类型 ==========
+
+// 课程类型信息
+export interface CourseTypeInfoDTO {
+  course_type_uuid: string
+  type_name: string
+  type_description: string
+}
+
+// 添加/更新课程类型请求
+export interface AddCourseTypeVO {
+  course_type_uuid?: string  // 更新时需要
+  course_type_name: string
+}
+
+// 课程类型分页查询参数
+export interface CourseTypePageQuery {
+  page: number
+  size: number
+  course_type_name?: string  // 课程类型名称（模糊查询）
+}
+
+// ========== 课程相关类型 ==========
+
+// 课程信息
+export interface CourseInfoDTO {
+  course_uuid: string
+  course_num: string
+  course_name: string
+  course_type_uuid: string
+  course_type_name: string
+  course_credit: number  // 支持小数
+}
+
+// 添加/更新课程请求
+export interface AddCourseVO {
+  course_uuid?: string     // 更新时需要
+  course_num: string       // 课程编号（唯一）
+  course_name: string
+  course_type_uuid: string
+  course_credit: number    // 支持小数
+}
+
+// 课程分页查询参数
+export interface CoursePageQuery {
+  page: number
+  size: number
+  course_name?: string      // 课程名称（模糊查询）
+  course_num?: string       // 课程编号（模糊查询）
+  course_type_uuid?: string // 课程类型UUID（精确查询）
+}

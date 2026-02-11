@@ -106,6 +106,14 @@ const allFeatures: Feature[] = [
     color: '#00BCD4',
     userTypes: [], // 管理员不显示此功能
   },
+  {
+    id: 12,
+    title: '课程类型管理',
+    description: '管理课程类型分类，如必修课、选修课等',
+    icon: '🏷️',
+    color: '#8BC34A',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+  },
 ]
 
 // 根据用户类型过滤功能
@@ -174,6 +182,7 @@ const handleFeatureClick = (feature: Feature) => {
     教学楼管理: '/building-management',
     教室管理: '/classroom-management',
     班级管理: '/class-management',
+    课程类型管理: '/course-type-management',
     智能排课: '/schedule',
     我的课表: '/my-schedule',
   }

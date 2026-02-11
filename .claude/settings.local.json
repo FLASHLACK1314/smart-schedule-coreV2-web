@@ -10,7 +10,10 @@
       "Bash(cat:*)",
       "Bash(ls:*)",
       "mcp__smart-schedule-coreV2__read_project_oas_mzfnaj",
-      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_mzfnaj"
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_mzfnaj",
+      "mcp__smart-schedule-coreV2__read_project_oas_2xzk6g",
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_2xzk6g",
+      "mcp__smart-schedule-coreV2__refresh_project_oas_2xzk6g"
     ]
   },
   "enableAllProjectMcpServers": true,
