@@ -6,8 +6,16 @@ import { UserType } from '@/api/types'
 import { getCourseQualificationPage, addCourseQualification, deleteCourseQualification } from '@/api/courseQualification'
 import { getCoursePage } from '@/api/course'
 import { getTeacherPage } from '@/api/teacher'
-import type { CourseQualificationInfoDTO, CourseInfoDTO, TeacherInfoDTO, AddCourseQualificationVO } from '@/api/types'
+import type { CourseQualificationInfoDTO, AddCourseQualificationVO } from '@/api/types'
 import { useMessage } from '@/composables/useMessage'
+import SearchSelect from '@/components/SearchSelect.vue'
+
+// 选项类型
+interface SelectOption {
+  label: string
+  value: string
+  [key: string]: any
+}
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -21,11 +29,7 @@ const isAdmin = computed(() => {
 
 // 响应式数据
 const qualifications = ref<CourseQualificationInfoDTO[]>([])
-const courses = ref<CourseInfoDTO[]>([])
-const teachers = ref<TeacherInfoDTO[]>([])
 const loading = ref(false)
-const coursesLoading = ref(false)
-const teachersLoading = ref(false)
 const selectedCourse = ref<string>('')
 const selectedTeacher = ref<string>('')
 const showDialog = ref(false)
@@ -41,37 +45,53 @@ const currentQualification = ref<AddCourseQualificationVO>({
   teacher_uuid: '',
 })
 
-// 获取课程列表（用于下拉选择和筛选）
-const fetchCourses = async () => {
-  coursesLoading.value = true
+// 搜索课程选项
+const fetchCourseOptions = async (keyword: string): Promise<SelectOption[]> => {
+  if (!keyword.trim()) return []
+
   try {
+    // 智能判断：数字字母按编号搜索，中文按名称搜索
+    const hasAlphaNumeric = /[a-zA-Z0-9]/.test(keyword)
     const response = await getCoursePage({
       page: 1,
-      size: 1000,
+      size: 20,
+      [hasAlphaNumeric ? 'course_num' : 'course_name']: keyword
     })
-    courses.value = response.records
+
+    return response.records.map(course => ({
+      label: `${course.course_name} (${course.course_num})`,
+      value: course.course_uuid,
+      course_num: course.course_num,
+      course_name: course.course_name
+    }))
   } catch (err) {
-    console.error('获取课程列表失败:', err)
-    error('获取课程列表失败: ' + (err as Error).message)
-  } finally {
-    coursesLoading.value = false
+    console.error('搜索课程失败:', err)
+    return []
   }
 }
 
-// 获取教师列表（用于下拉选择和筛选）
-const fetchTeachers = async () => {
-  teachersLoading.value = true
+// 搜索教师选项
+const fetchTeacherOptions = async (keyword: string): Promise<SelectOption[]> => {
+  if (!keyword.trim()) return []
+
   try {
+    // 智能判断：数字字母按工号搜索，中文按姓名搜索
+    const hasAlphaNumeric = /[a-zA-Z0-9]/.test(keyword)
     const response = await getTeacherPage({
       page: 1,
-      size: 1000,
+      size: 20,
+      [hasAlphaNumeric ? 'teacher_num' : 'teacher_name']: keyword
     })
-    teachers.value = response.records
+
+    return response.records.map(teacher => ({
+      label: `${teacher.teacher_name} (${teacher.teacher_num})`,
+      value: teacher.teacher_uuid,
+      teacher_num: teacher.teacher_num,
+      teacher_name: teacher.teacher_name
+    }))
   } catch (err) {
-    console.error('获取教师列表失败:', err)
-    error('获取教师列表失败: ' + (err as Error).message)
-  } finally {
-    teachersLoading.value = false
+    console.error('搜索教师失败:', err)
+    return []
   }
 }
 
@@ -161,8 +181,6 @@ const goBack = () => {
 
 // 页面加载时获取数据
 onMounted(async () => {
-  await fetchCourses()
-  await fetchTeachers()
   await fetchQualifications()
 })
 </script>
@@ -184,19 +202,23 @@ onMounted(async () => {
     <div class="main-content">
       <!-- 操作栏 -->
       <div class="action-bar">
-        <select v-model="selectedCourse" class="filter-select" :disabled="coursesLoading">
-          <option value="">全部课程</option>
-          <option v-for="course in courses" :key="course.course_uuid" :value="course.course_uuid">
-            {{ course.course_name }}
-          </option>
-        </select>
+        <div class="filter-item">
+          <SearchSelect
+            v-model="selectedCourse"
+            placeholder="搜索课程..."
+            :fetch-async="fetchCourseOptions"
+            class="filter-select-custom"
+          />
+        </div>
 
-        <select v-model="selectedTeacher" class="filter-select" :disabled="teachersLoading">
-          <option value="">全部教师</option>
-          <option v-for="teacher in teachers" :key="teacher.teacher_uuid" :value="teacher.teacher_uuid">
-            {{ teacher.teacher_name }}
-          </option>
-        </select>
+        <div class="filter-item">
+          <SearchSelect
+            v-model="selectedTeacher"
+            placeholder="搜索教师..."
+            :fetch-async="fetchTeacherOptions"
+            class="filter-select-custom"
+          />
+        </div>
 
         <button v-if="isAdmin" class="btn-primary" @click="openAddDialog">
           <span class="btn-icon">➕</span>
@@ -258,21 +280,19 @@ onMounted(async () => {
         <div class="dialog-body">
           <div class="form-group">
             <label>课程</label>
-            <select v-model="currentQualification.course_uuid" class="form-select">
-              <option value="">请选择课程</option>
-              <option v-for="course in courses" :key="course.course_uuid" :value="course.course_uuid">
-                {{ course.course_name }}
-              </option>
-            </select>
+            <SearchSelect
+              v-model="currentQualification.course_uuid"
+              placeholder="搜索课程..."
+              :fetch-async="fetchCourseOptions"
+            />
           </div>
           <div class="form-group">
             <label>教师</label>
-            <select v-model="currentQualification.teacher_uuid" class="form-select">
-              <option value="">请选择教师</option>
-              <option v-for="teacher in teachers" :key="teacher.teacher_uuid" :value="teacher.teacher_uuid">
-                {{ teacher.teacher_name }}
-              </option>
-            </select>
+            <SearchSelect
+              v-model="currentQualification.teacher_uuid"
+              placeholder="搜索教师..."
+              :fetch-async="fetchTeacherOptions"
+            />
           </div>
         </div>
         <div class="dialog-footer">
@@ -382,6 +402,15 @@ onMounted(async () => {
 .filter-select option {
   background: #1a1a2e;
   color: #ffffff;
+}
+
+/* 筛选项容器 */
+.filter-item {
+  min-width: 200px;
+}
+
+.filter-select-custom {
+  width: 100%;
 }
 
 /* 按钮样式 */
@@ -673,7 +702,8 @@ onMounted(async () => {
     flex-wrap: wrap;
   }
 
-  .filter-select {
+  .filter-select,
+  .filter-item {
     min-width: 180px;
   }
 
@@ -701,7 +731,8 @@ onMounted(async () => {
     align-items: stretch;
   }
 
-  .filter-select {
+  .filter-select,
+  .filter-item {
     width: 100%;
   }
 
