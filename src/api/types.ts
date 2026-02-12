@@ -364,3 +364,57 @@ export interface CourseQualificationPageQuery {
   course_uuid?: string   // 课程UUID筛选
   teacher_uuid?: string  // 教师UUID筛选
 }
+
+// ========== 学生相关类型 ==========
+
+// 学生班级信息（嵌套结构，蛇形命名）
+export interface StudentClassInfoDTO {
+  class_uuid: string
+  class_name: string
+  major_info: StudentMajorInfoDTO
+}
+
+// 学生专业信息（嵌嵌套结构，蛇形命名）
+export interface StudentMajorInfoDTO {
+  major_uuid: string
+  department_uuid: string
+  department_name: string
+  major_num: string
+  major_name: string
+}
+
+// 学生信息 DTO（蛇形命名）
+export interface StudentInfoDTO {
+  student_uuid: string
+  student_id: string
+  student_name: string
+  class_info: StudentClassInfoDTO
+}
+
+// 添加学生请求体（驼峰命名 - RequestBody）
+export interface AddStudentVO {
+  studentId: string
+  studentName: string
+  classUuid: string
+  studentPassword: string
+}
+
+// 更新学生请求体（驼峰命名 - RequestBody）
+export interface UpdateStudentVO {
+  studentUuid: string
+  studentId: string
+  studentName: string
+  classUuid: string
+  studentPassword?: string  // 可选，留空则不更新密码
+}
+
+// 学生分页查询参数（蛇形命名 - Query）
+export interface StudentPageQuery {
+  page: number
+  size: number
+  student_id?: string      // 学号（精确匹配）
+  student_name?: string    // 姓名（模糊匹配）
+  class_uuid?: string      // 班级UUID
+  major_uuid?: string      // 专业UUID
+  department_uuid?: string // 学院UUID
+}

@@ -1,175 +1,399 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { getStudentPage, addStudent, updateStudent, deleteStudent as deleteStudentApi } from '@/api/student'
+import { getClassPage } from '@/api/class'
+import { getMajorPage } from '@/api/major'
+import { getDepartmentPage } from '@/api/department'
+import type { StudentInfoDTO, AddStudentVO, UpdateStudentVO } from '@/api/types'
+import type { MajorInfoDTO } from '@/api/types'
+import type { ClassInfoDTO } from '@/api/types'
+import { useMessage } from '@/composables/useMessage'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const { success, error } = useMessage()
+const userStore = useUserStore()
 
-// 学生数据类型定义
-interface Student {
-  student_uuid: string
-  student_id: string
-  student_name: string
-  class_uuid: string
-  class_name?: string
-  grade?: string
-  gender?: string
-  email?: string
-  phone?: string
-  enrollment_date?: string
-  status?: 'active' | 'inactive' | 'graduated'
-}
+// 权限控制：只有 SYSTEM_ADMIN 和 ACADEMIC_ADMIN 可以管理学生
+const canManageStudents = computed(() => {
+  const userType = userStore.userType
+  return userType === 'SYSTEM_ADMIN' || userType === 'ACADEMIC_ADMIN'
+})
 
 // 响应式数据
-const students = ref<Student[]>([])
+const students = ref<StudentInfoDTO[]>([])
+const majors = ref<MajorInfoDTO[]>([])
+const classes = ref<ClassInfoDTO[]>([])
+const departments = ref<{ department_uuid: string; department_name: string }[]>([])
 const loading = ref(false)
-const searchKeyword = ref('')
+const majorsLoading = ref(false)
+const classesLoading = ref(false)
+const departmentsLoading = ref(false)
+
+// 筛选条件
+const searchStudentId = ref('')
+const searchStudentName = ref('')
+const filterDepartment = ref<string>('')
+const filterMajor = ref<string>('')
+const filterClass = ref<string>('')
+
+// 对话框相关
 const showDialog = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
-const currentStudent = ref<Student>({
-  student_uuid: '',
-  student_id: '',
-  student_name: '',
-  class_uuid: '',
-  class_name: '',
-  grade: '',
-  gender: '',
-  email: '',
-  phone: '',
-  enrollment_date: '',
-  status: 'active',
+
+// 对话框中的级联选择
+const dialogDepartment = ref<string>('')
+const dialogMajor = ref<string>('')
+
+// 分页数据
+const currentPage = ref(1)
+const pageSize = ref(100)
+const total = ref(0)
+
+// 当前编辑的学生
+const formData = ref<AddStudentVO | UpdateStudentVO>({
+  studentUuid: '',
+  studentId: '',
+  studentName: '',
+  classUuid: '',
+  studentPassword: '',
 })
 
-// 计算属性：过滤后的学生列表
-const filteredStudents = computed(() => {
-  if (!searchKeyword.value) return students.value
-  const keyword = searchKeyword.value.toLowerCase()
-  return students.value.filter(
-    (student) =>
-      student.student_name.toLowerCase().includes(keyword) ||
-      student.student_id.toLowerCase().includes(keyword) ||
-      (student.class_name && student.class_name.toLowerCase().includes(keyword)),
-  )
+// 确认密码（仅用于前端验证）
+const confirmPassword = ref('')
+
+// 根据选中的专业，过滤班级下拉框选项
+const filteredClasses = computed(() => {
+  if (!dialogMajor.value) return classes.value
+  return classes.value.filter(c => c.major_info.major_uuid === dialogMajor.value)
 })
+
+// 根据选中的学院，过滤专业下拉框选项（对话框）
+const filteredMajorsForDialog = computed(() => {
+  if (!dialogDepartment.value) return majors.value
+  return majors.value.filter(m => m.department_uuid === dialogDepartment.value)
+})
+
+// 获取学院列表（用于下拉选择）
+const fetchDepartments = async () => {
+  departmentsLoading.value = true
+  try {
+    const response = await getDepartmentPage({
+      page: 1,
+      size: 1000,
+    })
+    departments.value = response.records
+  } catch (err) {
+    console.error('获取学院列表失败:', err)
+    error('获取学院列表失败: ' + (err as Error).message)
+  } finally {
+    departmentsLoading.value = false
+  }
+}
+
+// 获取专业列表（用于筛选和对话框）
+const fetchMajors = async (departmentUuid?: string) => {
+  majorsLoading.value = true
+  try {
+    const response = await getMajorPage({
+      page: 1,
+      size: 1000,
+      department_uuid: departmentUuid,
+    })
+    majors.value = response.records
+  } catch (err) {
+    console.error('获取专业列表失败:', err)
+    error('获取专业列表失败: ' + (err as Error).message)
+  } finally {
+    majorsLoading.value = false
+  }
+}
+
+// 获取班级列表（用于筛选和对话框）
+const fetchClasses = async (params?: { class_name?: string; major_uuid?: string; department_uuid?: string }) => {
+  classesLoading.value = true
+  try {
+    const response = await getClassPage({
+      page: 1,
+      size: 1000,
+      ...params,
+    })
+    classes.value = response.records
+  } catch (err) {
+    console.error('获取班级列表失败:', err)
+    error('获取班级列表失败: ' + (err as Error).message)
+  } finally {
+    classesLoading.value = false
+  }
+}
 
 // 获取学生列表
-const fetchStudents = async () => {
+const fetchStudents = async (params?: {
+  student_id?: string
+  student_name?: string
+  class_uuid?: string
+  major_uuid?: string
+  department_uuid?: string
+}) => {
   loading.value = true
   try {
-    // TODO: 替换为实际的 API 调用
-    // 模拟数据
-    students.value = [
-      {
-        student_uuid: '1',
-        student_id: 'S2023001',
-        student_name: '张三',
-        class_uuid: 'class1',
-        class_name: '计算机科学与技术 2101 班',
-        grade: '2021级',
-        gender: '男',
-        email: 'zhangsan@university.edu',
-        phone: '13900001111',
-        enrollment_date: '2021-09-01',
-        status: 'active',
-      },
-      {
-        student_uuid: '2',
-        student_id: 'S2023002',
-        student_name: '李四',
-        class_uuid: 'class1',
-        class_name: '计算机科学与技术 2101 班',
-        grade: '2021级',
-        gender: '女',
-        email: 'lisi@university.edu',
-        phone: '13900002222',
-        enrollment_date: '2021-09-01',
-        status: 'active',
-      },
-      {
-        student_uuid: '3',
-        student_id: 'S2023003',
-        student_name: '王五',
-        class_uuid: 'class2',
-        class_name: '软件工程 2101 班',
-        grade: '2021级',
-        gender: '男',
-        email: 'wangwu@university.edu',
-        phone: '13900003333',
-        enrollment_date: '2021-09-01',
-        status: 'inactive',
-      },
-      {
-        student_uuid: '4',
-        student_id: 'S2020004',
-        student_name: '赵六',
-        class_uuid: 'class3',
-        class_name: '计算机科学与技术 2001 班',
-        grade: '2020级',
-        gender: '女',
-        email: 'zhaoliu@university.edu',
-        phone: '13900004444',
-        enrollment_date: '2020-09-01',
-        status: 'graduated',
-      },
-    ]
-  } catch (error) {
-    console.error('获取学生列表失败:', error)
+    const response = await getStudentPage({
+      page: currentPage.value,
+      size: pageSize.value,
+      ...params,
+    })
+    students.value = response.records
+    total.value = response.total
+  } catch (err) {
+    console.error('获取学生列表失败:', err)
+    error('获取学生列表失败: ' + (err as Error).message)
   } finally {
     loading.value = false
   }
 }
 
+// 搜索防抖 - 学号
+let searchIdTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchStudentId, (newId) => {
+  if (searchIdTimer) {
+    clearTimeout(searchIdTimer)
+  }
+  searchIdTimer = setTimeout(() => {
+    fetchStudents({
+      student_id: newId || undefined,
+      student_name: searchStudentName.value || undefined,
+      class_uuid: filterClass.value || undefined,
+      major_uuid: filterMajor.value || undefined,
+      department_uuid: filterDepartment.value || undefined,
+    })
+  }, 500)
+})
+
+// 搜索防抖 - 姓名
+let searchNameTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchStudentName, (newName) => {
+  if (searchNameTimer) {
+    clearTimeout(searchNameTimer)
+  }
+  searchNameTimer = setTimeout(() => {
+    fetchStudents({
+      student_id: searchStudentId.value || undefined,
+      student_name: newName || undefined,
+      class_uuid: filterClass.value || undefined,
+      major_uuid: filterMajor.value || undefined,
+      department_uuid: filterDepartment.value || undefined,
+    })
+  }, 500)
+})
+
+// 监听学院筛选（筛选区域）
+watch(filterDepartment, (newDeptUuid) => {
+  filterMajor.value = ''
+  filterClass.value = ''
+  if (newDeptUuid) {
+    fetchMajors(newDeptUuid)
+  }
+  fetchStudents({
+    student_id: searchStudentId.value || undefined,
+    student_name: searchStudentName.value || undefined,
+    department_uuid: newDeptUuid || undefined,
+  })
+})
+
+// 监听专业筛选（筛选区域）
+watch(filterMajor, (newMajorUuid) => {
+  filterClass.value = ''
+  fetchStudents({
+    student_id: searchStudentId.value || undefined,
+    student_name: searchStudentName.value || undefined,
+    major_uuid: newMajorUuid || undefined,
+    department_uuid: filterDepartment.value || undefined,
+  })
+})
+
+// 监听班级筛选（筛选区域）
+watch(filterClass, (newClassUuid) => {
+  fetchStudents({
+    student_id: searchStudentId.value || undefined,
+    student_name: searchStudentName.value || undefined,
+    class_uuid: newClassUuid || undefined,
+    major_uuid: filterMajor.value || undefined,
+    department_uuid: filterDepartment.value || undefined,
+  })
+})
+
+// 监听对话框中的学院选择
+watch(dialogDepartment, (newDeptUuid, oldDeptUuid) => {
+  // 只有当学院真正改变时才清空专业和班级
+  if (newDeptUuid !== oldDeptUuid) {
+    dialogMajor.value = ''
+    formData.value.classUuid = ''
+  }
+  if (newDeptUuid) {
+    fetchMajors(newDeptUuid)
+  }
+})
+
+// 监听对话框中的专业选择
+watch(dialogMajor, (newMajorUuid, oldMajorUuid) => {
+  // 只有当专业真正改变时才清空班级
+  if (newMajorUuid !== oldMajorUuid) {
+    formData.value.classUuid = ''
+  }
+  if (newMajorUuid) {
+    fetchClasses({ major_uuid: newMajorUuid })
+  }
+})
+
 // 打开添加对话框
 const openAddDialog = () => {
   dialogMode.value = 'add'
-  currentStudent.value = {
-    student_uuid: '',
-    student_id: '',
-    student_name: '',
-    class_uuid: '',
-    class_name: '',
-    grade: '',
-    gender: '',
-    email: '',
-    phone: '',
-    enrollment_date: '',
-    status: 'active',
+  formData.value = {
+    studentId: '',
+    studentName: '',
+    classUuid: '',
+    studentPassword: '',
   }
+  confirmPassword.value = ''
+  dialogDepartment.value = ''
+  dialogMajor.value = ''
   showDialog.value = true
 }
 
 // 打开编辑对话框
-const openEditDialog = (student: Student) => {
+const openEditDialog = async (student: StudentInfoDTO) => {
   dialogMode.value = 'edit'
-  currentStudent.value = { ...student }
+
+  // 先记录当前学生的学院和专业（在设置值之前）
+  const studentDepartment = student.class_info.major_info.department_uuid
+  const studentMajor = student.class_info.major_info.major_uuid
+  const studentClass = student.class_info.class_uuid
+
+  // 加载学院数据
+  await fetchDepartments()
+
+  // 设置学院并加载该学院的专业
+  dialogDepartment.value = studentDepartment
+  await fetchMajors(studentDepartment)
+
+  // 设置专业并加载该专业的班级
+  dialogMajor.value = studentMajor
+  await fetchClasses({ major_uuid: studentMajor })
+
+  // 设置表单数据
+  formData.value = {
+    studentUuid: student.student_uuid,
+    studentId: student.student_id,
+    studentName: student.student_name,
+    classUuid: studentClass,
+    studentPassword: '',
+  }
+  confirmPassword.value = ''
   showDialog.value = true
+}
+
+// 密码验证函数
+const validatePassword = (password: string): boolean => {
+  // 至少 8 位，包含字母和数字
+  const regex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
+  return regex.test(password)
 }
 
 // 保存学生
 const saveStudent = async () => {
+  // 表单验证
+  if (!formData.value.studentId.trim()) {
+    error('请输入学号')
+    return
+  }
+  if (!formData.value.studentName.trim()) {
+    error('请输入姓名')
+    return
+  }
+  if (!formData.value.classUuid) {
+    error('请选择班级')
+    return
+  }
+
+  // 添加模式：密码必填
+  if (dialogMode.value === 'add') {
+    if (!formData.value.studentPassword?.trim()) {
+      error('请输入密码')
+      return
+    }
+    if (!validatePassword(formData.value.studentPassword)) {
+      error('密码必须至少 8 位，且包含字母和数字')
+      return
+    }
+    if (formData.value.studentPassword !== confirmPassword.value) {
+      error('两次输入的密码不一致')
+      return
+    }
+  }
+
+  // 编辑模式：密码选填，但输入时需验证
+  if (dialogMode.value === 'edit' && formData.value.studentPassword?.trim()) {
+    if (!validatePassword(formData.value.studentPassword)) {
+      error('新密码必须至少 8 位，且包含字母和数字')
+      return
+    }
+    if (formData.value.studentPassword !== confirmPassword.value) {
+      error('两次输入的密码不一致')
+      return
+    }
+  }
+
   try {
-    // TODO: 替换为实际的 API 调用
     if (dialogMode.value === 'add') {
-      console.log('添加学生:', currentStudent.value)
+      await addStudent(formData.value as AddStudentVO)
+      success('添加学生成功')
     } else {
-      console.log('更新学生:', currentStudent.value)
+      const currentData = formData.value as UpdateStudentVO
+      const updateData: UpdateStudentVO = {
+        studentUuid: currentData.studentUuid,
+        studentId: currentData.studentId,
+        studentName: currentData.studentName,
+        classUuid: currentData.classUuid,
+      }
+      // 如果填写了新密码，则包含在请求中
+      if (currentData.studentPassword?.trim()) {
+        updateData.studentPassword = currentData.studentPassword
+      }
+      await updateStudent(updateData)
+      success('更新学生成功')
     }
     showDialog.value = false
-    await fetchStudents()
-  } catch (error) {
-    console.error('保存学生失败:', error)
+    await fetchStudents({
+      student_id: searchStudentId.value || undefined,
+      student_name: searchStudentName.value || undefined,
+      class_uuid: filterClass.value || undefined,
+      major_uuid: filterMajor.value || undefined,
+      department_uuid: filterDepartment.value || undefined,
+    })
+  } catch (err) {
+    console.error('保存学生失败:', err)
+    error('保存学生失败: ' + (err as Error).message)
   }
 }
 
 // 删除学生
-const deleteStudent = async (student_uuid: string) => {
-  if (!confirm('确定要删除该学生吗？')) return
+const deleteStudent = async (studentUuid: string, studentName: string) => {
+  if (!confirm(`确定要删除学生"${studentName}"吗？`)) return
 
   try {
-    // TODO: 替换为实际的 API 调用
-    console.log('删除学生:', student_uuid)
-    await fetchStudents()
-  } catch (error) {
-    console.error('删除学生失败:', error)
+    await deleteStudentApi(studentUuid)
+    success('删除学生成功')
+    await fetchStudents({
+      student_id: searchStudentId.value || undefined,
+      student_name: searchStudentName.value || undefined,
+      class_uuid: filterClass.value || undefined,
+      major_uuid: filterMajor.value || undefined,
+      department_uuid: filterDepartment.value || undefined,
+    })
+  } catch (err) {
+    console.error('删除学生失败:', err)
+    error('删除学生失败: ' + (err as Error).message)
   }
 }
 
@@ -178,20 +402,13 @@ const goBack = () => {
   router.push('/')
 }
 
-// 格式化状态显示
-const formatStatus = (status?: string) => {
-  const statusMap = {
-    active: '在读',
-    inactive: '休学',
-    graduated: '毕业',
-  }
-  return statusMap[status as keyof typeof statusMap] || '未知'
-}
-
-// 格式化状态样式
-const getStatusClass = (status?: string) => {
-  return `status-${status || 'unknown'}`
-}
+// 页面加载时获取数据
+onMounted(async () => {
+  await fetchDepartments()
+  await fetchMajors()
+  await fetchClasses()
+  await fetchStudents()
+})
 </script>
 
 <template>
@@ -211,16 +428,51 @@ const getStatusClass = (status?: string) => {
     <div class="main-content">
       <!-- 操作栏 -->
       <div class="action-bar">
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input
-            v-model="searchKeyword"
-            type="text"
-            placeholder="搜索学生姓名、学号或班级..."
-            class="search-input"
-          />
+        <div class="search-group">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input
+              v-model="searchStudentId"
+              type="text"
+              placeholder="学号（精确匹配）"
+              class="search-input"
+            />
+          </div>
+          <div class="search-box">
+            <span class="search-icon">👤</span>
+            <input
+              v-model="searchStudentName"
+              type="text"
+              placeholder="姓名（模糊匹配）"
+              class="search-input"
+            />
+          </div>
         </div>
-        <button class="btn-primary" @click="openAddDialog">
+
+        <div class="filter-group">
+          <select v-model="filterDepartment" class="filter-select" :disabled="departmentsLoading">
+            <option value="">全部学院</option>
+            <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
+              {{ dept.department_name }}
+            </option>
+          </select>
+
+          <select v-model="filterMajor" class="filter-select" :disabled="majorsLoading || !filterDepartment">
+            <option value="">全部专业</option>
+            <option v-for="major in majors.filter(m => !filterDepartment || m.department_uuid === filterDepartment)" :key="major.major_uuid" :value="major.major_uuid">
+              {{ major.major_name }}
+            </option>
+          </select>
+
+          <select v-model="filterClass" class="filter-select" :disabled="classesLoading || !filterMajor">
+            <option value="">全部班级</option>
+            <option v-for="cls in classes.filter(c => !filterMajor || c.major_info.major_uuid === filterMajor)" :key="cls.class_uuid" :value="cls.class_uuid">
+              {{ cls.class_name }}
+            </option>
+          </select>
+        </div>
+
+        <button v-if="canManageStudents" class="btn-primary" @click="openAddDialog">
           <span class="btn-icon">➕</span>
           添加学生
         </button>
@@ -232,52 +484,43 @@ const getStatusClass = (status?: string) => {
         <p>加载中...</p>
       </div>
 
-      <div v-else-if="filteredStudents.length === 0" class="empty-state">
+      <div v-else-if="students.length === 0" class="empty-state">
         <div class="empty-icon">📭</div>
         <h3>暂无学生数据</h3>
-        <p>点击"添加学生"按钮添加第一位学生</p>
+        <p v-if="canManageStudents">点击"添加学生"按钮添加第一位学生</p>
       </div>
 
-      <div v-else class="student-list">
-        <div class="list-header">
-          <div class="header-cell">学号</div>
-          <div class="header-cell">姓名</div>
-          <div class="header-cell">性别</div>
-          <div class="header-cell">班级</div>
-          <div class="header-cell">年级</div>
-          <div class="header-cell">状态</div>
-          <div class="header-cell">联系方式</div>
-          <div class="header-cell">操作</div>
-        </div>
-
-        <div v-for="student in filteredStudents" :key="student.student_uuid" class="student-row">
-          <div class="data-cell student-id">{{ student.student_id }}</div>
-          <div class="data-cell student-name">
-            <div class="student-avatar">{{ student.student_name.charAt(0) }}</div>
-            <span>{{ student.student_name }}</span>
-          </div>
-          <div class="data-cell">{{ student.gender || '-' }}</div>
-          <div class="data-cell">{{ student.class_name || '-' }}</div>
-          <div class="data-cell">{{ student.grade || '-' }}</div>
-          <div class="data-cell">
-            <span :class="['status-badge', getStatusClass(student.status)]">
-              {{ formatStatus(student.status) }}
-            </span>
-          </div>
-          <div class="data-cell contact-info">
-            <div v-if="student.email" class="contact-item">📧 {{ student.email }}</div>
-            <div v-if="student.phone" class="contact-item">📱 {{ student.phone }}</div>
-            <div v-if="!student.email && !student.phone">-</div>
-          </div>
-          <div class="data-cell actions">
-            <button class="btn-edit" @click="openEditDialog(student)">
-              <span class="btn-icon">✏️</span>
-            </button>
-            <button class="btn-delete" @click="deleteStudent(student.student_uuid)">
-              <span class="btn-icon">🗑️</span>
-            </button>
-          </div>
-        </div>
+      <!-- 数据表格 -->
+      <div v-else class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>学号</th>
+              <th>姓名</th>
+              <th>学院</th>
+              <th>专业</th>
+              <th>班级</th>
+              <th v-if="canManageStudents">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="student in students" :key="student.student_uuid">
+              <td>{{ student.student_id }}</td>
+              <td>{{ student.student_name }}</td>
+              <td>{{ student.class_info.major_info.department_name }}</td>
+              <td>{{ student.class_info.major_info.major_name }}</td>
+              <td>{{ student.class_info.class_name }}</td>
+              <td v-if="canManageStudents">
+                <div class="action-buttons">
+                  <button class="btn-edit" @click="openEditDialog(student)">编辑</button>
+                  <button class="btn-delete" @click="deleteStudent(student.student_uuid, student.student_name)">
+                    删除
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -285,65 +528,74 @@ const getStatusClass = (status?: string) => {
     <div v-if="showDialog" class="dialog-overlay" @click.self="showDialog = false">
       <div class="dialog">
         <div class="dialog-header">
-          <h2>{{ dialogMode === 'add' ? '添加学生' : '编辑学生' }}</h2>
+          <h3>{{ dialogMode === 'add' ? '添加学生' : '编辑学生' }}</h3>
           <button class="dialog-close" @click="showDialog = false">×</button>
         </div>
-
         <div class="dialog-body">
           <div class="form-group">
-            <label class="form-label">学号 *</label>
-            <input v-model="currentStudent.student_id" type="text" class="form-input" placeholder="请输入学号" />
+            <label>学号 *</label>
+            <input
+              v-model="formData.studentId"
+              type="text"
+              class="form-input"
+              placeholder="请输入学号"
+              :disabled="dialogMode === 'edit'"
+            />
+            <small v-if="dialogMode === 'edit'" class="form-hint">学号不可修改</small>
           </div>
 
           <div class="form-group">
-            <label class="form-label">姓名 *</label>
-            <input v-model="currentStudent.student_name" type="text" class="form-input" placeholder="请输入姓名" />
+            <label>姓名 *</label>
+            <input v-model="formData.studentName" type="text" class="form-input" placeholder="请输入姓名" />
           </div>
 
           <div class="form-group">
-            <label class="form-label">性别</label>
-            <select v-model="currentStudent.gender" class="form-input">
-              <option value="">请选择性别</option>
-              <option value="男">男</option>
-              <option value="女">女</option>
+            <label>所属学院 *</label>
+            <select v-model="dialogDepartment" class="form-select">
+              <option value="">请选择学院</option>
+              <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
+                {{ dept.department_name }}
+              </option>
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">班级 *</label>
-            <input v-model="currentStudent.class_name" type="text" class="form-input" placeholder="请输入班级" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">年级</label>
-            <input v-model="currentStudent.grade" type="text" class="form-input" placeholder="例如：2021级" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">入学日期</label>
-            <input v-model="currentStudent.enrollment_date" type="date" class="form-input" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">邮箱</label>
-            <input v-model="currentStudent.email" type="email" class="form-input" placeholder="请输入邮箱" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">电话</label>
-            <input v-model="currentStudent.phone" type="tel" class="form-input" placeholder="请输入电话" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">状态</label>
-            <select v-model="currentStudent.status" class="form-input">
-              <option value="active">在读</option>
-              <option value="inactive">休学</option>
-              <option value="graduated">毕业</option>
+            <label>所属专业 *</label>
+            <select v-model="dialogMajor" class="form-select" :disabled="!dialogDepartment">
+              <option value="">请选择专业</option>
+              <option v-for="major in filteredMajorsForDialog" :key="major.major_uuid" :value="major.major_uuid">
+                {{ major.major_name }}
+              </option>
             </select>
+          </div>
+
+          <div class="form-group">
+            <label>所属班级 *</label>
+            <select v-model="formData.classUuid" class="form-select" :disabled="!dialogMajor">
+              <option value="">请选择班级</option>
+              <option v-for="cls in filteredClasses" :key="cls.class_uuid" :value="cls.class_uuid">
+                {{ cls.class_name }}
+              </option>
+            </select>
+          </div>
+
+          <div v-if="dialogMode === 'add'" class="form-group">
+            <label>密码 *</label>
+            <input v-model="formData.studentPassword" type="password" class="form-input" placeholder="请输入密码" />
+            <small class="form-hint">至少 8 位，包含字母和数字</small>
+          </div>
+
+          <div v-if="dialogMode === 'add' || (dialogMode === 'edit' && formData.studentPassword)" class="form-group">
+            <label>{{ dialogMode === 'add' ? '确认密码 *' : '确认新密码' }}</label>
+            <input v-model="confirmPassword" type="password" class="form-input" :placeholder="dialogMode === 'add' ? '请再次输入密码' : '留空则不更新密码'" />
+          </div>
+
+          <div v-if="dialogMode === 'edit' && !formData.studentPassword" class="form-group">
+            <label>新密码</label>
+            <input v-model="formData.studentPassword" type="password" class="form-input" placeholder="留空则不更新密码" />
+            <small class="form-hint">如需修改密码请输入新密码，留空则不更新</small>
           </div>
         </div>
-
         <div class="dialog-footer">
           <button class="btn-secondary" @click="showDialog = false">取消</button>
           <button class="btn-primary" @click="saveStudent">保存</button>
@@ -355,6 +607,7 @@ const getStatusClass = (status?: string) => {
 
 <style scoped>
 .student-management {
+  width: 100%;
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
 }
@@ -418,9 +671,22 @@ const getStatusClass = (status?: string) => {
 /* 操作栏 */
 .action-bar {
   display: flex;
+  align-items: center;
   gap: 1rem;
   margin-bottom: 2rem;
-  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-group {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  min-width: 400px;
+}
+
+.filter-group {
+  display: flex;
+  gap: 0.75rem;
 }
 
 .search-box {
@@ -432,6 +698,12 @@ const getStatusClass = (status?: string) => {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0.75rem 1rem;
+  min-width: 200px;
+}
+
+.search-box:focus-within {
+  border-color: rgba(0, 212, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
 }
 
 .search-icon {
@@ -443,13 +715,42 @@ const getStatusClass = (status?: string) => {
   flex: 1;
   background: transparent;
   border: none;
+  outline: none;
   color: #ffffff;
   font-size: 1rem;
-  outline: none;
 }
 
 .search-input::placeholder {
-  color: rgba(160, 174, 192, 0.6);
+  color: #a0aec0;
+}
+
+/* 筛选下拉框 */
+.filter-select {
+  min-width: 160px;
+  padding: 0.75rem 1rem;
+  background: rgba(30, 30, 50, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 1rem;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-select:focus {
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+}
+
+.filter-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.filter-select option {
+  background: #1a1a2e;
+  color: #ffffff;
 }
 
 /* 按钮样式 */
@@ -459,13 +760,14 @@ const getStatusClass = (status?: string) => {
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
-  color: white;
   border: none;
   border-radius: 12px;
+  color: white;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .btn-primary:hover {
@@ -473,15 +775,16 @@ const getStatusClass = (status?: string) => {
   box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
 }
 
+.btn-icon {
+  font-size: 1.1rem;
+}
+
 .btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  background: transparent;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -489,12 +792,8 @@ const getStatusClass = (status?: string) => {
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-.btn-icon {
-  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 /* 加载和空状态 */
@@ -532,166 +831,89 @@ const getStatusClass = (status?: string) => {
   margin-bottom: 0.5rem;
 }
 
-/* 学生列表（表格样式） */
-.student-list {
+/* 表格容器 */
+.table-container {
   background: rgba(30, 30, 50, 0.8);
   backdrop-filter: blur(10px);
-  border-radius: 20px;
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 
-.list-header {
-  display: grid;
-  grid-template-columns: 140px 180px 80px 1fr 100px 100px 200px 120px;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.header-cell {
-  color: #a0aec0;
+.data-table thead {
+  background: rgba(0, 212, 255, 0.1);
+  border-bottom: 2px solid rgba(0, 212, 255, 0.2);
+}
+
+.data-table th {
+  padding: 1rem;
+  text-align: left;
+  color: #ffffff;
   font-weight: 600;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 0.95rem;
 }
 
-.student-row {
-  display: grid;
-  grid-template-columns: 140px 180px 80px 1fr 100px 100px 200px 120px;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem;
+.data-table td {
+  padding: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  transition: all 0.3s ease;
-  align-items: center;
+  color: #e0e0e0;
 }
 
-.student-row:hover {
+.data-table tbody tr {
+  transition: all 0.3s ease;
+}
+
+.data-table tbody tr:hover {
   background: rgba(0, 212, 255, 0.05);
 }
 
-.student-row:last-child {
+.data-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.data-cell {
-  color: #ffffff;
-  font-size: 0.95rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.student-id {
-  font-family: 'Courier New', monospace;
-  font-weight: 600;
-  color: #00d4ff;
-}
-
-.student-name {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.student-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: white;
-  flex-shrink: 0;
-}
-
-.contact-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-  color: #a0aec0;
-}
-
-.contact-item {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.35rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.status-active {
-  background: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
-  border: 1px solid rgba(76, 175, 80, 0.3);
-}
-
-.status-inactive {
-  background: rgba(255, 152, 0, 0.2);
-  color: #ff9800;
-  border: 1px solid rgba(255, 152, 0, 0.3);
-}
-
-.status-graduated {
-  background: rgba(33, 150, 243, 0.2);
-  color: #2196f3;
-  border: 1px solid rgba(33, 150, 243, 0.3);
-}
-
-.status-unknown {
-  background: rgba(158, 158, 158, 0.2);
-  color: #9e9e9e;
-  border: 1px solid rgba(158, 158, 158, 0.3);
-}
-
-.actions {
+/* 操作按钮 */
+.action-buttons {
   display: flex;
   gap: 0.5rem;
 }
 
-.btn-edit,
-.btn-delete {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.btn-edit {
+  padding: 0.4rem 0.8rem;
+  background: rgba(33, 150, 243, 0.2);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  border-radius: 6px;
+  color: #2196f3;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.btn-edit {
-  background: rgba(33, 150, 243, 0.1);
-  color: #2196f3;
-}
-
 .btn-edit:hover {
   background: rgba(33, 150, 243, 0.3);
-  transform: scale(1.1);
+  transform: translateY(-1px);
 }
 
 .btn-delete {
-  background: rgba(244, 67, 54, 0.1);
+  padding: 0.4rem 0.8rem;
+  background: rgba(244, 67, 54, 0.2);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 6px;
   color: #f44336;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 .btn-delete:hover {
   background: rgba(244, 67, 54, 0.3);
-  transform: scale(1.1);
+  transform: translateY(-1px);
 }
 
 /* 对话框 */
@@ -707,94 +929,142 @@ const getStatusClass = (status?: string) => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 2rem;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .dialog {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(30, 30, 50, 0.95) 0%, rgba(40, 40, 70, 0.95) 100%);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  width: 100%;
-  max-width: 600px;
+  width: 90%;
+  max-width: 500px;
   max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .dialog-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
+  justify-content: space-between;
+  padding: 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.dialog-header h2 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #ffffff;
+.dialog-header h3 {
   margin: 0;
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 .dialog-close {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: transparent;
   border: none;
-  color: #ffffff;
-  font-size: 1.5rem;
+  color: #a0aec0;
+  font-size: 2rem;
   cursor: pointer;
   transition: all 0.3s ease;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .dialog-close:hover {
-  background: rgba(244, 67, 54, 0.3);
+  color: #ffffff;
   transform: rotate(90deg);
 }
 
 .dialog-body {
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 表单样式 */
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
-.form-label {
+.form-group label {
   display: block;
-  color: #ffffff;
-  font-weight: 500;
   margin-bottom: 0.5rem;
-  font-size: 0.95rem;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
-.form-input {
+.form-hint {
+  display: block;
+  color: #a0aec0;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+.form-input,
+.form-select {
   width: 100%;
-  padding: 0.75rem 1rem;
-  background: rgba(30, 30, 50, 0.8);
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: #ffffff;
   font-size: 1rem;
   transition: all 0.3s ease;
-  outline: none;
+  box-sizing: border-box;
 }
 
-.form-input:focus {
-  border-color: #00d4ff;
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: rgba(0, 212, 255, 0.3);
   box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
 }
 
-.dialog-footer {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  padding: 1.5rem 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+.form-input:disabled {
+  background: rgba(30, 30, 50, 0.4);
+  color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.form-input::placeholder {
+  color: #a0aec0;
+}
+
+.form-select option {
+  background: #1a1a2e;
+  color: #ffffff;
 }
 
 /* 响应式设计 */
@@ -802,6 +1072,26 @@ const getStatusClass = (status?: string) => {
   .navbar-content,
   .main-content {
     padding: 1rem 2rem;
+  }
+
+  .action-bar {
+    flex-wrap: wrap;
+  }
+
+  .search-group {
+    min-width: 300px;
+  }
+
+  .filter-select {
+    min-width: 140px;
+  }
+
+  .table-container {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    min-width: 600px;
   }
 }
 
@@ -811,11 +1101,29 @@ const getStatusClass = (status?: string) => {
     padding: 1rem 1.5rem;
   }
 
+  .logo-text {
+    font-size: 1rem;
+  }
+
   .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-group {
+    flex-direction: column;
+    min-width: unset;
+  }
+
+  .filter-group {
     flex-direction: column;
   }
 
   .search-box {
+    width: 100%;
+  }
+
+  .filter-select {
     width: 100%;
   }
 
@@ -824,60 +1132,13 @@ const getStatusClass = (status?: string) => {
     justify-content: center;
   }
 
-  /* 移动端使用卡片布局 */
-  .list-header {
-    display: none;
-  }
-
-  .student-row {
-    display: flex;
+  .action-buttons {
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 1.5rem;
-    position: relative;
-  }
-
-  .student-name {
-    font-size: 1.1rem;
-    font-weight: 600;
-  }
-
-  .student-avatar {
-    width: 48px;
-    height: 48px;
-    font-size: 1.2rem;
-  }
-
-  .data-cell {
-    white-space: normal;
-  }
-
-  .data-cell::before {
-    content: attr(data-label);
-    font-weight: 600;
-    margin-right: 0.5rem;
-    color: #a0aec0;
-  }
-
-  .contact-info {
-    font-size: 0.9rem;
-  }
-
-  .actions {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
   }
 
   .dialog {
+    width: 95%;
     margin: 1rem;
-    max-height: calc(100vh - 2rem);
-  }
-
-  .dialog-header,
-  .dialog-body,
-  .dialog-footer {
-    padding: 1.5rem;
   }
 }
 </style>
