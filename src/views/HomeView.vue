@@ -114,6 +114,14 @@ const allFeatures: Feature[] = [
     color: '#8BC34A',
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
+  {
+    id: 13,
+    title: '课程类型-教室类型关联管理',
+    description: '管理哪些课程类型可以在哪些教室类型上课',
+    icon: '🔗',
+    color: '#FF6B9D',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+  },
 ]
 
 // 根据用户类型过滤功能
@@ -183,6 +191,7 @@ const handleFeatureClick = (feature: Feature) => {
     教室管理: '/classroom-management',
     班级管理: '/class-management',
     课程类型管理: '/course-type-management',
+    '课程类型-教室类型关联管理': '/course-classroom-type-management',
     智能排课: '/schedule',
     我的课表: '/my-schedule',
   }

@@ -311,3 +311,28 @@ export interface CoursePageQuery {
   course_num?: string       // 课程编号（模糊查询）
   course_type_uuid?: string // 课程类型UUID（精确查询）
 }
+
+// ========== 课程类型-教室类型关联相关类型 ==========
+
+// 关联信息
+export interface CourseClassroomTypeInfoDTO {
+  relation_uuid: string
+  course_type_uuid: string
+  course_type_name: string
+  classroom_type_uuid: string
+  classroom_type_name: string
+}
+
+// 添加关联请求
+export interface AddCourseClassroomTypeVO {
+  course_type_uuid: string
+  classroom_type_uuid: string
+}
+
+// 关联分页查询参数
+export interface CourseClassroomTypePageQuery {
+  page: number
+  size: number
+  course_type_uuid?: string
+  classroom_type_uuid?: string
+}

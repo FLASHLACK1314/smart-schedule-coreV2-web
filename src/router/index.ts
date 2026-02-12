@@ -88,6 +88,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/course-classroom-type-management',
+    name: 'CourseClassroomTypeManagement',
+    component: () => import('@/views/CourseClassroomTypeManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     redirect: '/login',

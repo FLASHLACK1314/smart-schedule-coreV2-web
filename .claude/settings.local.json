@@ -13,7 +13,10 @@
       "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_mzfnaj",
       "mcp__smart-schedule-coreV2__read_project_oas_2xzk6g",
       "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_2xzk6g",
-      "mcp__smart-schedule-coreV2__refresh_project_oas_2xzk6g"
+      "mcp__smart-schedule-coreV2__refresh_project_oas_2xzk6g",
+      "mcp__smart-schedule-coreV2__read_project_oas_do65mt",
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_do65mt",
+      "mcp__smart-schedule-coreV2__refresh_project_oas_do65mt"
     ]
   },
   "enableAllProjectMcpServers": true,
