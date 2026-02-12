@@ -43,7 +43,7 @@ const routes: RouteRecordRaw[] = [
     path: '/academic-management',
     name: 'AcademicManagement',
     component: () => import('@/views/AcademicManagementView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, allowedRoles: ['SYSTEM_ADMIN'] },
   },
   {
     path: '/college-management',

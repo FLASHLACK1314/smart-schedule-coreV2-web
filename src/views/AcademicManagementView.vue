@@ -1,175 +1,188 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { getAcademicAdminPage, addAcademicAdmin, updateAcademicAdmin, deleteAcademicAdmin as deleteAcademicAdminApi } from '@/api/academicAdmin'
+import { getDepartmentPage } from '@/api/department'
+import type { AcademicAdminInfoDTO, AddAcademicAdminVO, AcademicAdminPageQuery } from '@/api/types'
+import { useMessage } from '@/composables/useMessage'
 
 const router = useRouter()
-
-// 教务管理员数据类型定义
-interface AcademicAdmin {
-  academic_uuid: string
-  academic_num: string
-  academic_name: string
-  department_uuid: string
-  department_name?: string
-  email?: string
-  phone?: string
-  is_active: boolean
-  hire_date?: string
-  position?: string
-  permissions?: string[]
-}
+const { success, error } = useMessage()
 
 // 响应式数据
-const academics = ref<AcademicAdmin[]>([])
+const academics = ref<AcademicAdminInfoDTO[]>([])
+const departments = ref<{ department_uuid: string; department_name: string }[]>([])
 const loading = ref(false)
+const departmentsLoading = ref(false)
 const searchKeyword = ref('')
+const filterDepartment = ref<string>('')
 const showDialog = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
-const currentAcademic = ref<AcademicAdmin>({
-  academic_uuid: '',
-  academic_num: '',
-  academic_name: '',
-  department_uuid: '',
-  department_name: '',
-  email: '',
-  phone: '',
-  is_active: true,
-  hire_date: '',
-  position: '',
-  permissions: [],
+const confirmPassword = ref('')
+
+// 分页数据
+const currentPage = ref(1)
+const pageSize = ref(100)
+const total = ref(0)
+
+// 当前编辑的教务管理员
+const formData = ref<AddAcademicAdminVO>({
+  academicUuid: '',
+  academicNum: '',
+  academicName: '',
+  departmentUuid: '',
+  academicPassword: '',
 })
 
-// 计算属性：过滤后的教务管理员列表
-const filteredAcademics = computed(() => {
-  if (!searchKeyword.value) return academics.value
-  const keyword = searchKeyword.value.toLowerCase()
-  return academics.value.filter(
-    (academic) =>
-      academic.academic_name.toLowerCase().includes(keyword) ||
-      academic.academic_num.toLowerCase().includes(keyword) ||
-      (academic.department_name && academic.department_name.toLowerCase().includes(keyword)),
-  )
-})
+// 获取学院列表（用于下拉选择）
+const fetchDepartments = async () => {
+  departmentsLoading.value = true
+  try {
+    const response = await getDepartmentPage({
+      page: 1,
+      size: 1000,
+    })
+    departments.value = response.records
+  } catch (err) {
+    console.error('获取学院列表失败:', err)
+    error('获取学院列表失败: ' + (err as Error).message)
+  } finally {
+    departmentsLoading.value = false
+  }
+}
 
 // 获取教务管理员列表
-const fetchAcademics = async () => {
+const fetchAcademics = async (params?: Partial<AcademicAdminPageQuery>) => {
   loading.value = true
   try {
-    // TODO: 替换为实际的 API 调用
-    // 模拟数据
-    academics.value = [
-      {
-        academic_uuid: '1',
-        academic_num: 'A2023001',
-        academic_name: '张主任',
-        department_uuid: 'dept1',
-        department_name: '教务处',
-        email: 'zhang@academic.edu',
-        phone: '13800001111',
-        is_active: true,
-        hire_date: '2020-03-01',
-        position: '教务处主任',
-        permissions: ['排课管理', '课程管理', '教师管理', '教室管理', '班级管理'],
-      },
-      {
-        academic_uuid: '2',
-        academic_num: 'A2023002',
-        academic_name: '李副主任',
-        department_uuid: 'dept1',
-        department_name: '教务处',
-        email: 'li@academic.edu',
-        phone: '13800002222',
-        is_active: true,
-        hire_date: '2021-05-15',
-        position: '教务处副主任',
-        permissions: ['排课管理', '课程管理', '教师管理'],
-      },
-      {
-        academic_uuid: '3',
-        academic_num: 'A2023003',
-        academic_name: '王老师',
-        department_uuid: 'dept2',
-        department_name: '各学院教务科',
-        email: 'wang@academic.edu',
-        phone: '13800003333',
-        is_active: true,
-        hire_date: '2022-09-01',
-        position: '教务员',
-        permissions: ['课程管理', '教室管理'],
-      },
-      {
-        academic_uuid: '4',
-        academic_num: 'A2020004',
-        academic_name: '赵老师',
-        department_uuid: 'dept1',
-        department_name: '教务处',
-        email: 'zhao@academic.edu',
-        phone: '13800004444',
-        is_active: false,
-        hire_date: '2019-03-01',
-        position: '教务员',
-        permissions: ['课程管理'],
-      },
-    ]
-  } catch (error) {
-    console.error('获取教务管理员列表失败:', error)
+    const response = await getAcademicAdminPage({
+      page: currentPage.value,
+      size: pageSize.value,
+      ...params,
+    })
+    academics.value = response.records
+    total.value = response.total
+  } catch (err) {
+    console.error('获取教务管理员列表失败:', err)
+    error('获取教务管理员列表失败: ' + (err as Error).message)
   } finally {
     loading.value = false
   }
 }
 
+// 计算属性：显示的教务管理员列表
+const displayAcademics = computed(() => academics.value)
+
+// 搜索防抖
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchKeyword, (newKeyword) => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    if (newKeyword) {
+      // 智能判断：数字优先按工号搜索，中文按姓名搜索
+      const hasAlphaNumeric = /[a-zA-Z0-9]/.test(newKeyword)
+
+      fetchAcademics(
+        hasAlphaNumeric
+          ? { academic_num: newKeyword, department_uuid: filterDepartment.value || undefined }
+          : { academic_name: newKeyword, department_uuid: filterDepartment.value || undefined }
+      )
+    } else {
+      // 清空搜索时重新加载全部数据
+      fetchAcademics({ department_uuid: filterDepartment.value || undefined })
+    }
+  }, 500)
+})
+
+// 监听学院筛选
+watch(filterDepartment, (newDeptUuid) => {
+  fetchAcademics({
+    academic_name: searchKeyword.value || undefined,
+    department_uuid: newDeptUuid || undefined,
+  })
+})
+
 // 打开添加对话框
 const openAddDialog = () => {
   dialogMode.value = 'add'
-  currentAcademic.value = {
-    academic_uuid: '',
-    academic_num: '',
-    academic_name: '',
-    department_uuid: '',
-    department_name: '',
-    email: '',
-    phone: '',
-    is_active: true,
-    hire_date: '',
-    position: '',
-    permissions: [],
+  formData.value = {
+    academicUuid: '',
+    academicNum: '',
+    academicName: '',
+    departmentUuid: '',
+    academicPassword: '',
   }
+  confirmPassword.value = ''
   showDialog.value = true
 }
 
 // 打开编辑对话框
-const openEditDialog = (academic: AcademicAdmin) => {
+const openEditDialog = (academic: AcademicAdminInfoDTO) => {
   dialogMode.value = 'edit'
-  currentAcademic.value = { ...academic }
+  formData.value = {
+    academicUuid: academic.academic_uuid || '',
+    academicNum: academic.academic_num || '',
+    academicName: academic.academic_name || '',
+    departmentUuid: academic.department_info?.department_uuid || '',
+    academicPassword: '',
+  }
+  confirmPassword.value = ''
   showDialog.value = true
 }
 
 // 保存教务管理员
 const saveAcademic = async () => {
+  // 表单验证
+  if (!formData.value.academicNum.trim()) {
+    error('请输入教务工号')
+    return
+  }
+  if (!formData.value.academicName.trim()) {
+    error('请输入教务名称')
+    return
+  }
+  if (!formData.value.departmentUuid) {
+    error('请选择所属学院')
+    return
+  }
+  if (dialogMode.value === 'add' && !formData.value.academicPassword?.trim()) {
+    error('请输入密码')
+    return
+  }
+  if (dialogMode.value === 'add' && formData.value.academicPassword !== confirmPassword.value) {
+    error('两次输入的密码不一致')
+    return
+  }
+
   try {
-    // TODO: 替换为实际的 API 调用
     if (dialogMode.value === 'add') {
-      console.log('添加教务管理员:', currentAcademic.value)
+      await addAcademicAdmin(formData.value)
+      success('添加教务管理员成功')
     } else {
-      console.log('更新教务管理员:', currentAcademic.value)
+      await updateAcademicAdmin(formData.value)
+      success('更新教务管理员成功')
     }
     showDialog.value = false
     await fetchAcademics()
-  } catch (error) {
-    console.error('保存教务管理员失败:', error)
+  } catch (err) {
+    console.error('保存教务管理员失败:', err)
+    error('保存教务管理员失败: ' + (err as Error).message)
   }
 }
 
 // 删除教务管理员
-const deleteAcademic = async (academic_uuid: string) => {
-  if (!confirm('确定要删除该教务管理员吗？')) return
+const deleteAcademic = async (academic_uuid: string, academic_name: string) => {
+  if (!confirm(`确定要删除教务管理员"${academic_name}"吗？`)) return
 
   try {
-    // TODO: 替换为实际的 API 调用
-    console.log('删除教务管理员:', academic_uuid)
+    await deleteAcademicAdminApi(academic_uuid)
+    success('删除教务管理员成功')
     await fetchAcademics()
-  } catch (error) {
-    console.error('删除教务管理员失败:', error)
+  } catch (err) {
+    console.error('删除教务管理员失败:', err)
+    error('删除教务管理员失败: ' + (err as Error).message)
   }
 }
 
@@ -178,15 +191,11 @@ const goBack = () => {
   router.push('/')
 }
 
-// 格式化状态显示
-const formatStatus = (isActive: boolean) => {
-  return isActive ? '在职' : '离职'
-}
-
-// 格式化状态样式
-const getStatusClass = (isActive: boolean) => {
-  return isActive ? 'status-active' : 'status-inactive'
-}
+// 初始化
+onMounted(() => {
+  fetchDepartments()
+  fetchAcademics()
+})
 </script>
 
 <template>
@@ -197,7 +206,7 @@ const getStatusClass = (isActive: boolean) => {
         <div class="navbar-logo" @click="goBack">
           <span class="back-icon">←</span>
           <span class="logo-icon">📋</span>
-          <span class="logo-text">教务管理</span>
+          <span class="logo-text">教务管理员管理</span>
         </div>
       </div>
     </nav>
@@ -211,13 +220,19 @@ const getStatusClass = (isActive: boolean) => {
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="搜索教务人员姓名、工号或部门..."
+            placeholder="搜索教务管理员姓名、工号..."
             class="search-input"
           />
         </div>
+        <select v-model="filterDepartment" class="filter-select">
+          <option value="">所有学院</option>
+          <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
+            {{ dept.department_name }}
+          </option>
+        </select>
         <button class="btn-primary" @click="openAddDialog">
           <span class="btn-icon">➕</span>
-          添加教务人员
+          添加教务管理员
         </button>
       </div>
 
@@ -227,56 +242,32 @@ const getStatusClass = (isActive: boolean) => {
         <p>加载中...</p>
       </div>
 
-      <div v-else-if="filteredAcademics.length === 0" class="empty-state">
+      <div v-else-if="displayAcademics.length === 0" class="empty-state">
         <div class="empty-icon">📭</div>
-        <h3>暂无教务人员数据</h3>
-        <p>点击"添加教务人员"按钮添加第一位教务人员</p>
+        <h3>暂无教务管理员数据</h3>
+        <p>点击"添加教务管理员"按钮添加第一位教务管理员</p>
       </div>
 
       <div v-else class="academic-grid">
-        <div v-for="academic in filteredAcademics" :key="academic.academic_uuid" class="academic-card">
+        <div v-for="academic in displayAcademics" :key="academic.academic_uuid" class="academic-card">
           <div class="card-header">
             <div class="academic-avatar">
-              {{ academic.academic_name.charAt(0) }}
+              {{ academic.academic_name ? academic.academic_name.charAt(0) : '?' }}
             </div>
             <div class="academic-info">
-              <h3 class="academic-name">{{ academic.academic_name }}</h3>
-              <p class="academic-position">{{ academic.position || '未设置职位' }}</p>
-            </div>
-            <div :class="['status-badge', getStatusClass(academic.is_active)]">
-              {{ formatStatus(academic.is_active) }}
+              <h3 class="academic-name">{{ academic.academic_name || '未知' }}</h3>
+              <p class="academic-num">{{ academic.academic_num || '-' }}</p>
             </div>
           </div>
 
           <div class="card-body">
             <div class="info-row">
               <span class="info-label">工号</span>
-              <span class="info-value">{{ academic.academic_num }}</span>
+              <span class="info-value">{{ academic.academic_num || '-' }}</span>
             </div>
             <div class="info-row">
-              <span class="info-label">部门</span>
-              <span class="info-value">{{ academic.department_name || '未设置' }}</span>
-            </div>
-            <div v-if="academic.email" class="info-row">
-              <span class="info-label">邮箱</span>
-              <span class="info-value">{{ academic.email }}</span>
-            </div>
-            <div v-if="academic.phone" class="info-row">
-              <span class="info-label">电话</span>
-              <span class="info-value">{{ academic.phone }}</span>
-            </div>
-            <div v-if="academic.hire_date" class="info-row">
-              <span class="info-label">入职日期</span>
-              <span class="info-value">{{ academic.hire_date }}</span>
-            </div>
-
-            <div v-if="academic.permissions && academic.permissions.length > 0" class="permissions-section">
-              <div class="info-label" style="margin-bottom: 0.5rem">权限</div>
-              <div class="permissions-tags">
-                <span v-for="permission in academic.permissions" :key="permission" class="permission-tag">
-                  {{ permission }}
-                </span>
-              </div>
+              <span class="info-label">所属学院</span>
+              <span class="info-value">{{ academic.department_info?.department_name || '-' }}</span>
             </div>
           </div>
 
@@ -285,7 +276,7 @@ const getStatusClass = (isActive: boolean) => {
               <span class="btn-icon">✏️</span>
               编辑
             </button>
-            <button class="btn-delete" @click="deleteAcademic(academic.academic_uuid)">
+            <button class="btn-delete" @click="deleteAcademic(academic.academic_uuid, academic.academic_name || '教务管理员')">
               <span class="btn-icon">🗑️</span>
               删除
             </button>
@@ -298,149 +289,50 @@ const getStatusClass = (isActive: boolean) => {
     <div v-if="showDialog" class="dialog-overlay" @click.self="showDialog = false">
       <div class="dialog">
         <div class="dialog-header">
-          <h2>{{ dialogMode === 'add' ? '添加教务人员' : '编辑教务人员' }}</h2>
+          <h2>{{ dialogMode === 'add' ? '添加教务管理员' : '编辑教务管理员' }}</h2>
           <button class="dialog-close" @click="showDialog = false">×</button>
         </div>
 
         <div class="dialog-body">
           <div class="form-group">
-            <label class="form-label">工号 *</label>
-            <input v-model="currentAcademic.academic_num" type="text" class="form-input" placeholder="请输入工号" />
+            <label class="form-label">教务工号 *</label>
+            <input 
+              v-model="formData.academicNum" 
+              type="text" 
+              class="form-input" 
+              placeholder="请输入教务工号"
+              :disabled="dialogMode === 'edit'"
+            />
           </div>
 
           <div class="form-group">
-            <label class="form-label">姓名 *</label>
-            <input v-model="currentAcademic.academic_name" type="text" class="form-input" placeholder="请输入姓名" />
+            <label class="form-label">教务名称 *</label>
+            <input v-model="formData.academicName" type="text" class="form-input" placeholder="请输入教务名称" />
           </div>
 
           <div class="form-group">
-            <label class="form-label">部门 *</label>
-            <input v-model="currentAcademic.department_name" type="text" class="form-input" placeholder="请输入部门" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">职位</label>
-            <select v-model="currentAcademic.position" class="form-input">
-              <option value="">请选择职位</option>
-              <option value="教务处主任">教务处主任</option>
-              <option value="教务处副主任">教务处副主任</option>
-              <option value="教务员">教务员</option>
-              <option value="教学秘书">教学秘书</option>
+            <label class="form-label">所属学院 *</label>
+            <select v-model="formData.departmentUuid" class="form-input">
+              <option value="">请选择学院</option>
+              <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
+                {{ dept.department_name }}
+              </option>
             </select>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">入职日期</label>
-            <input v-model="currentAcademic.hire_date" type="date" class="form-input" />
+          <div v-if="dialogMode === 'add'" class="form-group">
+            <label class="form-label">密码 *</label>
+            <input v-model="formData.academicPassword" type="password" class="form-input" placeholder="请输入密码" />
           </div>
 
-          <div class="form-group">
-            <label class="form-label">邮箱</label>
-            <input v-model="currentAcademic.email" type="email" class="form-input" placeholder="请输入邮箱" />
+          <div v-if="dialogMode === 'add'" class="form-group">
+            <label class="form-label">确认密码 *</label>
+            <input v-model="confirmPassword" type="password" class="form-input" placeholder="请再次输入密码" />
           </div>
 
-          <div class="form-group">
-            <label class="form-label">电话</label>
-            <input v-model="currentAcademic.phone" type="tel" class="form-input" placeholder="请输入电话" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">权限</label>
-            <div class="checkbox-group">
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  :checked="currentAcademic.permissions?.includes('排课管理')"
-                  @change="
-                    (e) => {
-                      const target = e.target as HTMLInputElement
-                      if (target.checked) {
-                        currentAcademic.permissions = [...(currentAcademic.permissions || []), '排课管理']
-                      } else {
-                        currentAcademic.permissions = currentAcademic.permissions?.filter((p) => p !== '排课管理') || []
-                      }
-                    }
-                  "
-                />
-                <span>排课管理</span>
-              </label>
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  :checked="currentAcademic.permissions?.includes('课程管理')"
-                  @change="
-                    (e) => {
-                      const target = e.target as HTMLInputElement
-                      if (target.checked) {
-                        currentAcademic.permissions = [...(currentAcademic.permissions || []), '课程管理']
-                      } else {
-                        currentAcademic.permissions = currentAcademic.permissions?.filter((p) => p !== '课程管理') || []
-                      }
-                    }
-                  "
-                />
-                <span>课程管理</span>
-              </label>
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  :checked="currentAcademic.permissions?.includes('教师管理')"
-                  @change="
-                    (e) => {
-                      const target = e.target as HTMLInputElement
-                      if (target.checked) {
-                        currentAcademic.permissions = [...(currentAcademic.permissions || []), '教师管理']
-                      } else {
-                        currentAcademic.permissions = currentAcademic.permissions?.filter((p) => p !== '教师管理') || []
-                      }
-                    }
-                  "
-                />
-                <span>教师管理</span>
-              </label>
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  :checked="currentAcademic.permissions?.includes('教室管理')"
-                  @change="
-                    (e) => {
-                      const target = e.target as HTMLInputElement
-                      if (target.checked) {
-                        currentAcademic.permissions = [...(currentAcademic.permissions || []), '教室管理']
-                      } else {
-                        currentAcademic.permissions = currentAcademic.permissions?.filter((p) => p !== '教室管理') || []
-                      }
-                    }
-                  "
-                />
-                <span>教室管理</span>
-              </label>
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  :checked="currentAcademic.permissions?.includes('班级管理')"
-                  @change="
-                    (e) => {
-                      const target = e.target as HTMLInputElement
-                      if (target.checked) {
-                        currentAcademic.permissions = [...(currentAcademic.permissions || []), '班级管理']
-                      } else {
-                        currentAcademic.permissions = currentAcademic.permissions?.filter((p) => p !== '班级管理') || []
-                      }
-                    }
-                  "
-                />
-                <span>班级管理</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">状态</label>
-            <label class="checkbox-label">
-              <input v-model="currentAcademic.is_active" type="checkbox" />
-              <span>在职</span>
-            </label>
+          <div v-if="dialogMode === 'edit'" class="form-group">
+            <label class="form-label">密码（留空表示不更改）</label>
+            <input v-model="formData.academicPassword" type="password" class="form-input" placeholder="请输入新密码（可选）" />
           </div>
         </div>
 
@@ -552,6 +444,32 @@ const getStatusClass = (isActive: boolean) => {
   color: rgba(160, 174, 192, 0.6);
 }
 
+.filter-select {
+  padding: 0.75rem 1rem;
+  background: rgba(30, 30, 50, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-select:hover {
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+}
+
+.filter-select option {
+  background: #1a1a2e;
+  color: #ffffff;
+}
+
 /* 按钮样式 */
 .btn-primary {
   display: inline-flex;
@@ -635,7 +553,7 @@ const getStatusClass = (isActive: boolean) => {
 /* 教务管理员卡片网格 */
 .academic-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
 }
 
@@ -646,6 +564,8 @@ const getStatusClass = (isActive: boolean) => {
   border: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
 }
 
 .academic-card:hover {
@@ -659,14 +579,13 @@ const getStatusClass = (isActive: boolean) => {
   gap: 1rem;
   padding: 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  position: relative;
 }
 
 .academic-avatar {
   width: 60px;
   height: 60px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%);
+  background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -678,44 +597,28 @@ const getStatusClass = (isActive: boolean) => {
 
 .academic-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .academic-name {
   font-size: 1.25rem;
   font-weight: 600;
   color: #ffffff;
+  margin: 0;
   margin-bottom: 0.25rem;
 }
 
-.academic-position {
+.academic-num {
   font-size: 0.95rem;
   color: #a0aec0;
-}
-
-.status-badge {
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.status-active {
-  background: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
-  border: 1px solid rgba(76, 175, 80, 0.3);
-}
-
-.status-inactive {
-  background: rgba(244, 67, 54, 0.2);
-  color: #f44336;
-  border: 1px solid rgba(244, 67, 54, 0.3);
+  margin: 0;
 }
 
 .card-body {
   padding: 1.5rem;
+  flex: 1;
 }
 
 .info-row {
@@ -731,35 +634,13 @@ const getStatusClass = (isActive: boolean) => {
 
 .info-label {
   color: #a0aec0;
+  font-weight: 500;
 }
 
 .info-value {
   color: #ffffff;
-  font-weight: 500;
+  font-weight: 600;
   text-align: right;
-}
-
-.permissions-section {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.permissions-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.permission-tag {
-  display: inline-block;
-  padding: 0.35rem 0.75rem;
-  background: rgba(233, 30, 99, 0.15);
-  border: 1px solid rgba(233, 30, 99, 0.3);
-  border-radius: 20px;
-  font-size: 0.85rem;
-  color: #e91e63;
-  font-weight: 500;
 }
 
 .card-footer {
@@ -841,6 +722,7 @@ const getStatusClass = (isActive: boolean) => {
   align-items: center;
   padding: 1.5rem 2rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 15, 26, 0.5);
 }
 
 .dialog-header h2 {
@@ -896,6 +778,11 @@ const getStatusClass = (isActive: boolean) => {
   font-size: 1rem;
   transition: all 0.3s ease;
   outline: none;
+  box-sizing: border-box;
+}
+
+.form-input:hover {
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .form-input:focus {
@@ -903,24 +790,14 @@ const getStatusClass = (isActive: boolean) => {
   box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
 }
 
-.checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+.form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.form-input option {
+  background: #1a1a2e;
   color: #ffffff;
-  cursor: pointer;
-}
-
-.checkbox-label input[type='checkbox'] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
 }
 
 .dialog-footer {
@@ -929,6 +806,7 @@ const getStatusClass = (isActive: boolean) => {
   justify-content: flex-end;
   padding: 1.5rem 2rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 15, 26, 0.3);
 }
 
 /* 响应式设计 */
@@ -939,7 +817,7 @@ const getStatusClass = (isActive: boolean) => {
   }
 
   .academic-grid {
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   }
 }
 
@@ -951,9 +829,14 @@ const getStatusClass = (isActive: boolean) => {
 
   .action-bar {
     flex-direction: column;
+    gap: 0.75rem;
   }
 
   .search-box {
+    width: 100%;
+  }
+
+  .filter-select {
     width: 100%;
   }
 

@@ -418,3 +418,31 @@ export interface StudentPageQuery {
   major_uuid?: string      // 专业UUID
   department_uuid?: string // 学院UUID
 }
+
+// ========== 教务管理员相关类型 ==========
+
+// 教务管理员信息（响应数据 - 蛇形命名）
+export interface AcademicAdminInfoDTO {
+  academic_uuid: string
+  academic_num: string
+  academic_name: string
+  department_info: DepartmentInfoDTO
+}
+
+// 添加/更新教务管理员请求（请求体 - 驼峰命名）
+export interface AddAcademicAdminVO {
+  academicUuid?: string      // 更新时需要
+  academicNum: string        // 教务工号
+  academicName: string       // 教务名称
+  departmentUuid: string     // 所属学院UUID
+  academicPassword?: string  // 密码（添加必填，更新可选）
+}
+
+// 教务管理员分页查询参数（查询参数 - 蛇形命名）
+export interface AcademicAdminPageQuery {
+  page: number
+  size: number
+  academic_name?: string     // 教务名称（模糊查询）
+  academic_num?: string      // 教务工号（模糊查询）
+  department_uuid?: string   // 学院UUID（精确查询）
+}
