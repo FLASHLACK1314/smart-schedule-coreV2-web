@@ -336,3 +336,31 @@ export interface CourseClassroomTypePageQuery {
   course_type_uuid?: string
   classroom_type_uuid?: string
 }
+
+// ========== 课程-教师资格关联相关类型 ==========
+
+// 课程教师资格信息
+export interface CourseQualificationInfoDTO {
+  course_qualification_uuid: string  // 关联关系UUID
+  course_uuid: string               // 课程UUID
+  course_name: string               // 课程名称
+  teacher_uuid: string              // 教师UUID
+  teacher_name: string              // 教师姓名
+  teacher_title: string             // 教师职称
+  department_uuid: string           // 学院UUID
+  department_name: string           // 学院名称
+}
+
+// 添加课程教师资格请求
+export interface AddCourseQualificationVO {
+  course_uuid: string   // 课程UUID（下划线命名）
+  teacher_uuid: string  // 教师UUID（下划线命名）
+}
+
+// 课程教师资格分页查询参数
+export interface CourseQualificationPageQuery {
+  page: number
+  size: number
+  course_uuid?: string   // 课程UUID筛选
+  teacher_uuid?: string  // 教师UUID筛选
+}

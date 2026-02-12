@@ -122,6 +122,14 @@ const allFeatures: Feature[] = [
     color: '#FF6B9D',
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
+  {
+    id: 14,
+    title: '课程教师资格管理',
+    description: '管理教师授课资格，维护课程与教师的关联关系',
+    icon: '🎓',
+    color: '#FFB74D',
+    userTypes: [UserType.SYSTEM_ADMIN, UserType.ACADEMIC_ADMIN, UserType.TEACHER, UserType.STUDENT],
+  },
 ]
 
 // 根据用户类型过滤功能
@@ -192,6 +200,7 @@ const handleFeatureClick = (feature: Feature) => {
     班级管理: '/class-management',
     课程类型管理: '/course-type-management',
     '课程类型-教室类型关联管理': '/course-classroom-type-management',
+    课程教师资格管理: '/course-qualification-management',
     智能排课: '/schedule',
     我的课表: '/my-schedule',
   }

@@ -94,6 +94,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/course-qualification-management',
+    name: 'CourseQualificationManagement',
+    component: () => import('@/views/CourseQualificationManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     redirect: '/login',
