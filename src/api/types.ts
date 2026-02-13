@@ -446,3 +446,47 @@ export interface AcademicAdminPageQuery {
   academic_num?: string      // 教务工号（模糊查询）
   department_uuid?: string   // 学院UUID（精确查询）
 }
+
+// ========== 学期相关类型 ==========
+
+// 学期信息
+export interface SemesterInfoDTO {
+  semester_uuid: string
+  semester_name: string
+}
+
+// 学期分页查询参数
+export interface SemesterPageQuery {
+  page: number
+  size: number
+  semester_name?: string
+}
+
+// ========== 教学班相关类型 ==========
+
+// 教学班信息 DTO
+export interface TeachingClassInfoDTO {
+  teachingClassUuid: string
+  courseName: string
+  teacherName: string
+  semesterName: string
+  teachingClassName: string
+}
+
+// 添加/更新教学班请求（驼峰命名）
+export interface AddTeachingClassVO {
+  teachingClassUuid?: string  // 更新时需要
+  courseUuid: string
+  teacherUuid: string
+  semesterUuid: string
+  teachingClassName: string
+}
+
+// 教学班分页查询参数（蛇形命名）
+export interface TeachingClassPageQuery {
+  page: number
+  size: number
+  course_uuid?: string
+  teacher_uuid?: string
+  semester_uuid?: string
+}

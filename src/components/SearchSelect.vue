@@ -10,6 +10,7 @@ interface Props {
   disabled?: boolean
   clearable?: boolean
   debounceDelay?: number
+  initialOption?: SelectOption | null
 }
 
 // 选项类型
@@ -24,6 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   clearable: true,
   debounceDelay: 500,
+  initialOption: null,
 })
 
 const emit = defineEmits<{
@@ -71,6 +73,18 @@ watch(() => props.modelValue, (newValue) => {
   if (!newValue) {
     selectedOption.value = null
     searchKeyword.value = ''
+  } else if (!selectedOption.value && props.initialOption) {
+    // 如果有初始选项且当前没有选中项，使用初始选项
+    selectedOption.value = props.initialOption
+    searchKeyword.value = props.initialOption.label
+  }
+}, { immediate: true })
+
+// 监听 initialOption 变化
+watch(() => props.initialOption, (newOption) => {
+  if (newOption && props.modelValue && !selectedOption.value) {
+    selectedOption.value = newOption
+    searchKeyword.value = newOption.label
   }
 }, { immediate: true })
 

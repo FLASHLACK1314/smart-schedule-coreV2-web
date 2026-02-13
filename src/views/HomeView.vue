@@ -130,6 +130,14 @@ const allFeatures: Feature[] = [
     color: '#FFB74D',
     userTypes: [UserType.SYSTEM_ADMIN, UserType.ACADEMIC_ADMIN, UserType.TEACHER, UserType.STUDENT],
   },
+  {
+    id: 15,
+    title: '教学班管理',
+    description: '管理教学班信息，关联课程、教师和学期',
+    icon: '📚',
+    color: '#00BCD4',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+  },
 ]
 
 // 根据用户类型过滤功能
@@ -201,6 +209,7 @@ const handleFeatureClick = (feature: Feature) => {
     课程类型管理: '/course-type-management',
     '课程类型-教室类型关联管理': '/course-classroom-type-management',
     课程教师资格管理: '/course-qualification-management',
+    教学班管理: '/teaching-class-management',
     智能排课: '/schedule',
     我的课表: '/my-schedule',
   }
