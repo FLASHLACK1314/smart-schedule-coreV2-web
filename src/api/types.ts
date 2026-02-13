@@ -490,3 +490,36 @@ export interface TeachingClassPageQuery {
   teacher_uuid?: string
   semester_uuid?: string
 }
+
+// ========== 教学班-行政班关联相关类型 ==========
+
+// 教学班-行政班关联信息 DTO（蛇形命名 - 后端返回）
+export interface TeachingClassClassInfoDTO {
+  teaching_class_class_uuid: string
+  teaching_class_uuid: string
+  teaching_class_name: string
+  course_uuid: string
+  course_name: string
+  teacher_uuid: string
+  teacher_name: string
+  class_uuid: string
+  class_name: string
+  major_uuid: string
+  major_name: string
+  department_uuid: string
+  department_name: string
+}
+
+// 添加关联请求（蛇形命名 - 请求体）
+export interface AddTeachingClassClassVO {
+  teaching_class_uuid: string
+  class_uuid: string
+}
+
+// 关联分页查询参数（蛇形命名 - 查询参数）
+export interface TeachingClassClassPageQuery {
+  page: number
+  size: number
+  teaching_class_uuid?: string
+  class_uuid?: string
+}

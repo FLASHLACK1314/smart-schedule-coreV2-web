@@ -138,6 +138,14 @@ const allFeatures: Feature[] = [
     color: '#00BCD4',
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
+  {
+    id: 16,
+    title: '教学班-行政班关联管理',
+    description: '管理教学班与行政班的关联关系，将行政班级添加到教学班中',
+    icon: '🔗',
+    color: '#FF6B9D',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+  },
 ]
 
 // 根据用户类型过滤功能
@@ -210,6 +218,7 @@ const handleFeatureClick = (feature: Feature) => {
     '课程类型-教室类型关联管理': '/course-classroom-type-management',
     课程教师资格管理: '/course-qualification-management',
     教学班管理: '/teaching-class-management',
+    '教学班-行政班关联管理': '/teaching-class-class-management',
     智能排课: '/schedule',
     我的课表: '/my-schedule',
   }
