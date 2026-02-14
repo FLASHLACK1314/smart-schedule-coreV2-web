@@ -21,7 +21,9 @@
       "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_fjkesk",
       "mcp__smart-schedule-coreV2__refresh_project_oas_fjkesk",
       "mcp__smart-schedule-coreV2__read_project_oas_vlv4y2",
-      "mcp__smart-schedule-coreV2__refresh_project_oas_vlv4y2"
+      "mcp__smart-schedule-coreV2__refresh_project_oas_vlv4y2",
+      "mcp__smart-schedule-coreV2__read_project_oas_bmg2hp",
+      "Bash(timeout 8 npm run dev:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

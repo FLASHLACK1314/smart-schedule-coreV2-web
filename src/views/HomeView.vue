@@ -154,6 +154,14 @@ const allFeatures: Feature[] = [
     color: '#FF9800',
     userTypes: [], // 对所有用户可见
   },
+  {
+    id: 18,
+    title: '排课管理',
+    description: '管理排课记录，对教学班进行时间、教室安排',
+    icon: '📅',
+    color: '#9C27B0',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+  },
 ]
 
 // 根据用户类型过滤功能
@@ -226,6 +234,7 @@ const handleFeatureClick = (feature: Feature) => {
     智能排课: '/schedule',
     我的课表: '/my-schedule',
     课表查看: '/timetable-view',
+    排课管理: '/schedule-management',
   }
 
   const route = routeMap[feature.title]

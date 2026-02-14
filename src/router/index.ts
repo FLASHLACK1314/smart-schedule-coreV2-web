@@ -112,6 +112,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/schedule-management',
+    name: 'ScheduleManagement',
+    component: () => import('@/views/ScheduleManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/timetable-view',
     name: 'TimetableView',
     component: () => import('@/views/TimetableView.vue'),

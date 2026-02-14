@@ -581,3 +581,40 @@ export interface ClassroomTimetableQuery {
   classroom_uuid: string
   semester_uuid: string
 }
+
+// ========== 排课管理相关类型 ==========
+
+/**
+ * 排课信息 DTO（复用 TimetableCellDTO 结构）
+ */
+export type ScheduleInfoDTO = TimetableCellDTO
+
+/**
+ * 添加/更新排课请求体（蛇形命名）
+ */
+export interface AddScheduleVO {
+  schedule_uuid?: string  // 更新时必填
+  semester_uuid: string
+  teaching_class_uuid: string
+  classroom_uuid: string
+  day_of_week: number      // 1-7
+  section_start: number
+  section_end: number
+  weeks_json: string       // JSON 字符串 "[1,2,3,4,5]"
+  is_locked?: boolean      // 默认 false
+  status: number           // 0-预览/1-正式
+}
+
+/**
+ * 排课分页查询参数（蛇形命名）
+ */
+export interface SchedulePageQuery {
+  page: number
+  size: number
+  semester_uuid?: string
+  teaching_class_uuid?: string
+  classroom_uuid?: string
+  teacher_uuid?: string
+  day_of_week?: number
+  status?: number
+}
