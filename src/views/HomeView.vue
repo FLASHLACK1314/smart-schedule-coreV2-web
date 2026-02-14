@@ -4,6 +4,11 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { UserType } from '@/api/types'
 
+// 定义组件名称（用于 keep-alive）
+defineOptions({
+  name: 'HomeView',
+})
+
 interface Feature {
   id: number
   title: string
@@ -11,148 +16,70 @@ interface Feature {
   icon: string
   color: string
   userTypes?: string[] // 限定哪些用户类型可以看到此功能
+  category: string // 功能分类
+}
+
+interface Category {
+  id: string
+  title: string
+  icon: string
+  description: string
+  order: number
 }
 
 const userStore = useUserStore()
 const router = useRouter()
 
+// 功能分类定义
+const categories: Category[] = [
+  {
+    id: 'scheduling',
+    title: '核心排课',
+    icon: '📅',
+    description: '智能排课与排课管理',
+    order: 1,
+  },
+  {
+    id: 'basic-data',
+    title: '基础数据',
+    icon: '📊',
+    description: '课程、教师、教室等基础信息',
+    order: 2,
+  },
+  {
+    id: 'teaching',
+    title: '教学管理',
+    icon: '📚',
+    description: '教学班与关联管理',
+    order: 3,
+  },
+  {
+    id: 'timetable',
+    title: '课表查看',
+    icon: '🗓️',
+    description: '查看个人与班级课表',
+    order: 4,
+  },
+  {
+    id: 'system',
+    title: '系统管理',
+    icon: '⚙️',
+    description: '系统配置与用户管理',
+    order: 5,
+  },
+]
+
 // 所有功能定义
 const allFeatures: Feature[] = [
+  // 核心排课
   {
     id: 1,
     title: '智能排课',
     description: '基于先进算法的自动排课系统，一键生成最优课表',
     icon: '📅',
     color: '#4CAF50',
-    userTypes: [], // 管理员不显示此功能
-  },
-  {
-    id: 2,
-    title: '课程管理',
-    description: '全面管理课程信息、课时设置和教学安排',
-    icon: '📚',
-    color: '#2196F3',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 3,
-    title: '教师管理',
-    description: '维护教师档案、授课时间偏好和教学资源',
-    icon: '👨‍🏫',
-    color: '#FF9800',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 4,
-    title: '教学楼管理',
-    description: '管理教学楼信息，维护教学场地资源',
-    icon: '🏢',
-    color: '#FF5722',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 5,
-    title: '教室管理',
-    description: '智能化教室资源调度，最大化利用率',
-    icon: '🏫',
-    color: '#9C27B0',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 6,
-    title: '班级管理',
-    description: '灵活管理班级信息和学生数据统计',
-    icon: '👥',
-    color: '#F44336',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 7,
-    title: '学生管理',
-    description: '管理学生档案、学籍信息和成绩数据',
-    icon: '🎓',
-    color: '#00BCD4',
-    userTypes: [UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 8,
-    title: '学院管理',
-    description: '管理学院组织架构、专业设置和行政配置',
-    icon: '🏛️',
-    color: '#607D8B',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 9,
-    title: '专业管理',
-    description: '管理专业信息、培养方案和专业设置',
-    icon: '📖',
-    color: '#3F51B5',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 10,
-    title: '教务管理',
-    description: '教务处人员管理、部门配置与权限设置',
-    icon: '📋',
-    color: '#E91E63',
-    userTypes: [UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 11,
-    title: '我的课表',
-    description: '查看个人课程安排，支持导出和打印',
-    icon: '📊',
-    color: '#00BCD4',
-    userTypes: [], // 管理员不显示此功能
-  },
-  {
-    id: 12,
-    title: '课程类型管理',
-    description: '管理课程类型分类，如必修课、选修课等',
-    icon: '🏷️',
-    color: '#8BC34A',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 13,
-    title: '课程类型-教室类型关联管理',
-    description: '管理哪些课程类型可以在哪些教室类型上课',
-    icon: '🔗',
-    color: '#FF6B9D',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 14,
-    title: '课程教师资格管理',
-    description: '管理教师授课资格，维护课程与教师的关联关系',
-    icon: '🎓',
-    color: '#FFB74D',
-    userTypes: [UserType.SYSTEM_ADMIN, UserType.ACADEMIC_ADMIN, UserType.TEACHER, UserType.STUDENT],
-  },
-  {
-    id: 15,
-    title: '教学班管理',
-    description: '管理教学班信息，关联课程、教师和学期',
-    icon: '📚',
-    color: '#00BCD4',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 16,
-    title: '教学班-行政班关联管理',
-    description: '管理教学班与行政班的关联关系，将行政班级添加到教学班中',
-    icon: '🔗',
-    color: '#FF6B9D',
-    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
-  },
-  {
-    id: 17,
-    title: '课表查看',
-    description: '以课表网格形式查看课程安排，支持多种查询维度',
-    icon: '📊',
-    color: '#FF9800',
-    userTypes: [], // 对所有用户可见
+    userTypes: [],
+    category: 'scheduling',
   },
   {
     id: 18,
@@ -161,6 +88,7 @@ const allFeatures: Feature[] = [
     icon: '📅',
     color: '#9C27B0',
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'scheduling',
   },
   {
     id: 19,
@@ -169,6 +97,155 @@ const allFeatures: Feature[] = [
     icon: '📅',
     color: '#4CAF50',
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'scheduling',
+  },
+  // 基础数据
+  {
+    id: 2,
+    title: '课程管理',
+    description: '全面管理课程信息、课时设置和教学安排',
+    icon: '📚',
+    color: '#2196F3',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'basic-data',
+  },
+  {
+    id: 3,
+    title: '教师管理',
+    description: '维护教师档案、授课时间偏好和教学资源',
+    icon: '👨‍🏫',
+    color: '#FF9800',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'basic-data',
+  },
+  {
+    id: 4,
+    title: '教学楼管理',
+    description: '管理教学楼信息，维护教学场地资源',
+    icon: '🏢',
+    color: '#FF5722',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'basic-data',
+  },
+  {
+    id: 5,
+    title: '教室管理',
+    description: '智能化教室资源调度，最大化利用率',
+    icon: '🏫',
+    color: '#9C27B0',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'basic-data',
+  },
+  {
+    id: 6,
+    title: '班级管理',
+    description: '灵活管理班级信息和学生数据统计',
+    icon: '👥',
+    color: '#F44336',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'basic-data',
+  },
+  {
+    id: 7,
+    title: '学生管理',
+    description: '管理学生档案、学籍信息和成绩数据',
+    icon: '🎓',
+    color: '#00BCD4',
+    userTypes: [UserType.SYSTEM_ADMIN],
+    category: 'basic-data',
+  },
+  {
+    id: 8,
+    title: '学院管理',
+    description: '管理学院组织架构、专业设置和行政配置',
+    icon: '🏛️',
+    color: '#607D8B',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'basic-data',
+  },
+  {
+    id: 9,
+    title: '专业管理',
+    description: '管理专业信息、培养方案和专业设置',
+    icon: '📖',
+    color: '#3F51B5',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'basic-data',
+  },
+  {
+    id: 12,
+    title: '课程类型管理',
+    description: '管理课程类型分类，如必修课、选修课等',
+    icon: '🏷️',
+    color: '#8BC34A',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'basic-data',
+  },
+  // 教学管理
+  {
+    id: 15,
+    title: '教学班管理',
+    description: '管理教学班信息，关联课程、教师和学期',
+    icon: '📚',
+    color: '#00BCD4',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'teaching',
+  },
+  {
+    id: 16,
+    title: '教学班-行政班关联管理',
+    description: '管理教学班与行政班的关联关系，将行政班级添加到教学班中',
+    icon: '🔗',
+    color: '#FF6B9D',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'teaching',
+  },
+  {
+    id: 13,
+    title: '课程类型-教室类型关联管理',
+    description: '管理哪些课程类型可以在哪些教室类型上课',
+    icon: '🔗',
+    color: '#FF6B9D',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+    category: 'teaching',
+  },
+  {
+    id: 14,
+    title: '课程教师资格管理',
+    description: '管理教师授课资格，维护课程与教师的关联关系',
+    icon: '🎓',
+    color: '#FFB74D',
+    userTypes: [UserType.SYSTEM_ADMIN, UserType.ACADEMIC_ADMIN, UserType.TEACHER, UserType.STUDENT],
+    category: 'teaching',
+  },
+  // 课表查看
+  {
+    id: 11,
+    title: '我的课表',
+    description: '查看个人课程安排，支持导出和打印',
+    icon: '📊',
+    color: '#00BCD4',
+    userTypes: [],
+    category: 'timetable',
+  },
+  {
+    id: 17,
+    title: '课表查看',
+    description: '以课表网格形式查看课程安排，支持多种查询维度',
+    icon: '📊',
+    color: '#FF9800',
+    userTypes: [],
+    category: 'timetable',
+  },
+  // 系统管理
+  {
+    id: 10,
+    title: '教务管理',
+    description: '教务处人员管理、部门配置与权限设置',
+    icon: '📋',
+    color: '#E91E63',
+    userTypes: [UserType.SYSTEM_ADMIN],
+    category: 'system',
   },
 ]
 
@@ -192,6 +269,17 @@ const features = computed(() => {
     // 否则，只对指定用户类型可见
     return f.userTypes.includes(userType)
   })
+})
+
+// 获取每个分类下的功能（按分类顺序）
+const categorizedFeatures = computed(() => {
+  return categories
+    .sort((a, b) => a.order - b.order)
+    .map(category => ({
+      ...category,
+      features: features.value.filter(f => f.category === category.id),
+    }))
+    .filter(category => category.features.length > 0) // 只显示有功能的分类
 })
 
 // 用户类型显示名称
@@ -328,23 +416,39 @@ const handleLogout = async () => {
         <h2 class="section-title">核心功能</h2>
         <p class="section-subtitle">全方位的排课管理功能，满足您的一切需求</p>
       </div>
-      <div class="features-grid">
-        <div
-          v-for="feature in features"
-          :key="feature.id"
-          class="feature-card"
-          @click="handleFeatureClick(feature)"
-        >
-          <div class="feature-icon-wrapper" :style="{ backgroundColor: feature.color + '20' }">
-            <span class="feature-icon">{{ feature.icon }}</span>
+
+      <!-- 按分类展示功能 -->
+      <div
+        v-for="category in categorizedFeatures"
+        :key="category.id"
+        class="category-section"
+      >
+        <div class="category-header">
+          <div class="category-icon-wrapper">
+            <span class="category-icon">{{ category.icon }}</span>
           </div>
-          <div class="feature-content">
-            <h3 class="feature-title">
-              {{ feature.title }}
-            </h3>
-            <p class="feature-description">{{ feature.description }}</p>
+          <div class="category-info">
+            <h3 class="category-title">{{ category.title }}</h3>
+            <p class="category-description">{{ category.description }}</p>
           </div>
-          <div class="feature-arrow">→</div>
+        </div>
+        <div class="features-grid">
+          <div
+            v-for="feature in category.features"
+            :key="feature.id"
+            class="feature-card"
+            @click="handleFeatureClick(feature)"
+          >
+            <div class="feature-icon-wrapper" :style="{ backgroundColor: feature.color + '20' }">
+              <span class="feature-icon">{{ feature.icon }}</span>
+            </div>
+            <div class="feature-content">
+              <h4 class="feature-title">
+                {{ feature.title }}
+              </h4>
+              <p class="feature-description">{{ feature.description }}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -606,20 +710,78 @@ const handleLogout = async () => {
   opacity: 1;
 }
 
+/* 分类区域 */
+.category-section {
+  margin-bottom: 4rem;
+}
+
+.category-section:last-child {
+  margin-bottom: 0;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.category-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.category-icon {
+  font-size: 1.75rem;
+}
+
+.category-info {
+  flex: 1;
+}
+
+.category-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.25rem;
+}
+
+.category-description {
+  font-size: 0.95rem;
+  color: #a0aec0;
+}
+
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+
+/* 超大屏幕：5列 */
+@media (min-width: 1601px) {
+  .features-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
 }
 
 .feature-card {
   background: linear-gradient(135deg, rgba(30, 30, 50, 0.8) 0%, rgba(40, 40, 70, 0.8) 100%);
   backdrop-filter: blur(10px);
   border-radius: 20px;
-  padding: 2rem;
+  padding: 2rem 1.5rem;
   display: flex;
-  align-items: flex-start;
-  gap: 1.5rem;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -627,72 +789,47 @@ const handleLogout = async () => {
   overflow: hidden;
 }
 
-.feature-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%);
-  transform: scaleX(0);
-  transition: transform 0.3s ease;
-}
-
-.feature-card:hover::before {
-  transform: scaleX(1);
-}
-
 .feature-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 20px 60px rgba(0, 212, 255, 0.2);
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 20px 60px rgba(0, 212, 255, 0.25);
   border-color: rgba(0, 212, 255, 0.3);
   background: linear-gradient(135deg, rgba(35, 35, 60, 0.9) 0%, rgba(50, 50, 80, 0.9) 100%);
 }
 
 .feature-icon-wrapper {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  margin-bottom: 0.5rem;
 }
 
 .feature-icon {
-  font-size: 2rem;
+  font-size: 2.25rem;
 }
 
 .feature-content {
-  flex: 1;
+  width: 100%;
 }
 
 .feature-title {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 600;
   color: #ffffff;
   margin-bottom: 0.5rem;
 }
 
 .feature-description {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #a0aec0;
   opacity: 1;
   line-height: 1.5;
-}
-
-.feature-arrow {
-  font-size: 1.5rem;
-  color: #00d4ff;
-  opacity: 0;
-  transform: translateX(-10px);
-  transition: all 0.3s ease;
-}
-
-.feature-card:hover .feature-arrow {
-  opacity: 1;
-  transform: translateX(0);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* CTA 区域 */
@@ -766,7 +903,16 @@ const handleLogout = async () => {
 }
 
 /* 响应式设计 */
-@media (max-width: 1200px) {
+
+/* 大屏幕：4列（默认） */
+@media (min-width: 1201px) and (max-width: 1600px) {
+  .features-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 中屏幕：3列 */
+@media (min-width: 769px) and (max-width: 1200px) {
   .top-navbar .navbar-content {
     padding: 1rem 2rem;
   }
@@ -785,12 +931,35 @@ const handleLogout = async () => {
     font-size: 3rem;
   }
 
+  .category-header {
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .category-icon-wrapper {
+    width: 48px;
+    height: 48px;
+  }
+
+  .category-icon {
+    font-size: 1.5rem;
+  }
+
+  .category-title {
+    font-size: 1.25rem;
+  }
+
+  .category-description {
+    font-size: 0.9rem;
+  }
+
   .features-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 768px) {
+/* 小屏幕：2列 */
+@media (min-width: 481px) and (max-width: 768px) {
   .top-navbar .navbar-content {
     padding: 1rem 1.5rem;
   }
@@ -817,6 +986,8 @@ const handleLogout = async () => {
 
   .hero-section {
     padding: 3rem 1.5rem;
+    flex-direction: column;
+    text-align: center;
   }
 
   .hero-title {
@@ -839,13 +1010,52 @@ const handleLogout = async () => {
     font-size: 2rem;
   }
 
+  .category-header {
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .category-icon-wrapper {
+    width: 48px;
+    height: 48px;
+  }
+
+  .category-icon {
+    font-size: 1.5rem;
+  }
+
+  .category-title {
+    font-size: 1.15rem;
+  }
+
+  .category-description {
+    font-size: 0.85rem;
+  }
+
   .features-grid {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
   }
 
   .feature-card {
-    padding: 1.5rem;
+    padding: 1.5rem 1rem;
+  }
+
+  .feature-icon-wrapper {
+    width: 56px;
+    height: 56px;
+  }
+
+  .feature-icon {
+    font-size: 1.75rem;
+  }
+
+  .feature-title {
+    font-size: 1rem;
+  }
+
+  .feature-description {
+    font-size: 0.85rem;
   }
 
   .cta-section {
@@ -854,6 +1064,130 @@ const handleLogout = async () => {
 
   .cta-title {
     font-size: 2rem;
+  }
+}
+
+/* 移动端：1列 */
+@media (max-width: 480px) {
+  .top-navbar .navbar-content {
+    padding: 1rem 1rem;
+  }
+
+  .navbar-user {
+    gap: 0.75rem;
+  }
+
+  .user-info {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .user-name {
+    display: none;
+  }
+
+  .user-type {
+    display: none;
+  }
+
+  .logout-button span:not(.logout-icon) {
+    display: none;
+  }
+
+  .logout-button {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .hero-section {
+    padding: 2rem 1rem;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .hero-visual {
+    display: none;
+  }
+
+  .features-section {
+    padding: 3rem 1rem;
+  }
+
+  .section-title {
+    font-size: 1.75rem;
+  }
+
+  .section-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .category-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .category-icon-wrapper {
+    width: 48px;
+    height: 48px;
+  }
+
+  .category-icon {
+    font-size: 1.5rem;
+  }
+
+  .category-title {
+    font-size: 1.1rem;
+  }
+
+  .category-description {
+    font-size: 0.85rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .feature-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .feature-icon-wrapper {
+    width: 64px;
+    height: 64px;
+  }
+
+  .feature-icon {
+    font-size: 2rem;
+  }
+
+  .feature-title {
+    font-size: 1.05rem;
+  }
+
+  .feature-description {
+    font-size: 0.85rem;
+    -webkit-line-clamp: 2;
+  }
+
+  .cta-section {
+    padding: 3rem 1rem;
+  }
+
+  .cta-title {
+    font-size: 1.75rem;
+  }
+
+  .cta-subtitle {
+    font-size: 1rem;
   }
 
   .cta-buttons {

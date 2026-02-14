@@ -7,7 +7,12 @@ const { messages, remove } = useMessage()
 </script>
 
 <template>
-  <router-view />
+  <!-- 使用 keep-alive 缓存首页，保持滚动位置 -->
+  <router-view v-slot="{ Component }">
+    <keep-alive include="HomeView">
+      <component :is="Component" />
+    </keep-alive>
+  </router-view>
   <MessageToast :messages="messages" @remove="remove" />
 </template>
 
