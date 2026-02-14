@@ -118,6 +118,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/semester-management',
+    name: 'SemesterManagement',
+    component: () => import('@/views/SemesterManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/timetable-view',
     name: 'TimetableView',
     component: () => import('@/views/TimetableView.vue'),

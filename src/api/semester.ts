@@ -33,13 +33,14 @@ export function getSemester(semesterUuid: string): Promise<SemesterInfoDTO> {
 /**
  * 新增学期
  * @param semesterName 学期名称
+ * @param semesterWeeks 学期周数
  * @returns void
  */
-export function addSemester(semesterName: string): Promise<void> {
+export function addSemester(semesterName: string, semesterWeeks: number): Promise<void> {
   return request({
     url: '/v1/semester/add',
     method: 'post',
-    params: { semester_name: semesterName },
+    params: { semester_name: semesterName, semester_weeks: semesterWeeks },
   })
 }
 
@@ -48,7 +49,11 @@ export function addSemester(semesterName: string): Promise<void> {
  * @param data 学期数据
  * @returns void
  */
-export function updateSemester(data: { semester_uuid: string; semester_name: string }): Promise<void> {
+export function updateSemester(data: {
+  semester_uuid: string
+  semester_name: string
+  semester_weeks: number
+}): Promise<void> {
   return request({
     url: '/v1/semester/update',
     method: 'put',

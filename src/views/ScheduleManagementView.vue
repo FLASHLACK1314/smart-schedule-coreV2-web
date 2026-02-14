@@ -125,7 +125,6 @@ const fetchSemesterOptions = async (keyword: string): Promise<SelectOption[]> =>
 
 // 搜索教学班选项
 const fetchTeachingClassOptions = async (keyword: string): Promise<SelectOption[]> => {
-  if (!keyword.trim()) return []
   try {
     const response = await getTeachingClassPage({
       page: 1,
@@ -150,7 +149,6 @@ const fetchTeachingClassOptions = async (keyword: string): Promise<SelectOption[
 
 // 搜索教室选项
 const fetchClassroomOptions = async (keyword: string): Promise<SelectOption[]> => {
-  if (!keyword.trim()) return []
   try {
     const response = await getClassroomPage({
       page: 1,
@@ -491,6 +489,7 @@ fetchSchedules()
               v-model="filterTeachingClass"
               placeholder="搜索教学班..."
               :fetch-async="fetchTeachingClassOptions"
+              load-on-focus
               class="filter-select-custom"
             />
           </div>
@@ -500,6 +499,7 @@ fetchSchedules()
               v-model="filterClassroom"
               placeholder="搜索教室..."
               :fetch-async="fetchClassroomOptions"
+              load-on-focus
               class="filter-select-custom"
             />
           </div>
@@ -628,6 +628,7 @@ fetchSchedules()
               placeholder="搜索学期..."
               :fetch-async="fetchSemesterOptions"
               :initial-option="initialSemesterOption"
+              load-on-focus
             />
           </div>
 
@@ -638,6 +639,7 @@ fetchSchedules()
               placeholder="搜索教学班..."
               :fetch-async="fetchTeachingClassOptions"
               :initial-option="initialTeachingClassOption"
+              load-on-focus
             />
           </div>
 
@@ -648,6 +650,7 @@ fetchSchedules()
               placeholder="搜索教室..."
               :fetch-async="fetchClassroomOptions"
               :initial-option="initialClassroomOption"
+              load-on-focus
             />
           </div>
 

@@ -131,7 +131,7 @@ const handleSelect = (option: SelectOption) => {
 const handleClear = () => {
   selectedOption.value = null
   searchKeyword.value = ''
-  searchResults.value = []
+  // 不清空搜索结果，保留下拉列表数据
   emit('update:modelValue', '')
   emit('change', null)
 }

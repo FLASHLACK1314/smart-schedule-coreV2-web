@@ -25,7 +25,7 @@ import type {
 import { useMessage } from '@/composables/useMessage'
 
 const router = useRouter()
-const { success, error } = useMessage()
+const { success, error, warning, info } = useMessage()
 
 // ========== 常量定义 ==========
 const MAX_SECTIONS = 12 // 最大节次
@@ -44,6 +44,7 @@ const selectedClassroomUuid = ref<string>('')
 
 // 周次筛选
 const selectedWeek = ref<number>(0) // 0 表示全部周次
+const currentSemesterWeeks = ref<number>(20) // 当前学期的周数，默认20
 
 // 数据状态
 const timetableData = ref<TimetableCellDTO[]>([])
@@ -88,16 +89,16 @@ const formatWeeks = (weeksJson: string): string => {
   const sortedWeeks = [...new Set(weeks)].sort((a, b) => a - b)
 
   const ranges: string[] = []
-  let start = sortedWeeks[0]
-  let end = sortedWeeks[0]
+  let start = sortedWeeks[0]!
+  let end = sortedWeeks[0]!
 
   for (let i = 1; i < sortedWeeks.length; i++) {
-    if (sortedWeeks[i] === end + 1) {
-      end = sortedWeeks[i]
+    if (sortedWeeks[i]! === end! + 1) {
+      end = sortedWeeks[i]!
     } else {
       ranges.push(start === end ? `${start}` : `${start}-${end}`)
-      start = sortedWeeks[i]
-      end = sortedWeeks[i]
+      start = sortedWeeks[i]!
+      end = sortedWeeks[i]!
     }
   }
   ranges.push(start === end ? `${start}` : `${start}-${end}`)
@@ -119,6 +120,23 @@ const fetchSemesters = async () => {
       size: 100,
     })
     semesters.value = response.records
+
+    // 如果没有学期数据，提示用户
+    if (semesters.value.length === 0) {
+      warning('暂无学期数据，请先添加学期')
+      return
+    }
+
+    // 设置默认学期：选择列表中的第一个
+    if (!selectedSemesterUuid.value) {
+      const latestSemester = semesters.value[0]!
+      selectedSemesterUuid.value = latestSemester.semester_uuid
+      selectedSemesterName.value = latestSemester.semester_name
+      currentSemesterWeeks.value = latestSemester.semester_weeks || 20
+
+      // 初始化默认教师并自动查询课表
+      await initializeDefaultTeacher()
+    }
   } catch (err) {
     console.error('获取学期列表失败:', err)
     error('获取学期列表失败: ' + (err as Error).message)
@@ -142,6 +160,35 @@ const fetchTeachers = async (keyword: string) => {
   } catch (err) {
     console.error('搜索教师失败:', err)
     return []
+  }
+}
+
+// 初始化默认教师
+const initializeDefaultTeacher = async () => {
+  try {
+    loading.value = true
+    const teachers = await fetchTeachers('') // 空字符串获取前20条
+
+    // 如果没有教师数据，提示用户
+    if (teachers.length === 0) {
+      warning('暂无教师数据，请先添加教师')
+      return
+    }
+
+    // 设置默认教师：选择列表中的第一个
+    if (!selectedTeacherUuid.value) {
+      const firstTeacher = teachers[0]!
+      selectedTeacherUuid.value = firstTeacher.value
+      selectedTeacherName.value = firstTeacher.label
+
+      // 自动触发课表查询
+      await fetchTimetable()
+    }
+  } catch (err) {
+    console.error('初始化默认教师失败:', err)
+    error('初始化默认教师失败: ' + (err as Error).message)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -320,7 +367,7 @@ const handleCellClick = (cells: TimetableCellDTO[]) => {
   if (cells.length === 0) return
 
   // 如果有多个课程，选择第一个
-  selectedCell.value = cells[0]
+  selectedCell.value = cells[0]!
   showDetailDialog.value = true
 }
 
@@ -392,6 +439,7 @@ fetchSemesters()
                 return semesters.map((s) => ({
                   label: s.semester_name,
                   value: s.semester_uuid,
+                  semester_weeks: s.semester_weeks,
                 }))
               }
             "
@@ -400,9 +448,13 @@ fetchSemesters()
                 ? { label: selectedSemesterName, value: selectedSemesterUuid }
                 : null
             "
+            load-on-focus
             @change="
               (option: any) => {
-                if (option) selectedSemesterName = option.label
+                if (option) {
+                  selectedSemesterName = option.label
+                  currentSemesterWeeks = option.semester_weeks || 20
+                }
               }
             "
           />
@@ -483,7 +535,7 @@ fetchSemesters()
           <label class="filter-label">周次</label>
           <select v-model="selectedWeek" class="week-select">
             <option :value="0">全部周次</option>
-            <option v-for="week in 20" :key="week" :value="week">
+            <option v-for="week in currentSemesterWeeks" :key="week" :value="week">
               第 {{ week }} 周
             </option>
           </select>

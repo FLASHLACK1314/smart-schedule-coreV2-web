@@ -162,6 +162,14 @@ const allFeatures: Feature[] = [
     color: '#9C27B0',
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
+  {
+    id: 19,
+    title: '学期管理',
+    description: '管理学期信息，维护学期基础数据',
+    icon: '📅',
+    color: '#4CAF50',
+    userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
+  },
 ]
 
 // 根据用户类型过滤功能
@@ -235,6 +243,7 @@ const handleFeatureClick = (feature: Feature) => {
     我的课表: '/my-schedule',
     课表查看: '/timetable-view',
     排课管理: '/schedule-management',
+    学期管理: '/semester-management',
   }
 
   const route = routeMap[feature.title]

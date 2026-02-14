@@ -453,6 +453,7 @@ export interface AcademicAdminPageQuery {
 export interface SemesterInfoDTO {
   semester_uuid: string
   semester_name: string
+  semester_weeks: number // 学期周数
 }
 
 // 学期分页查询参数
