@@ -146,6 +146,14 @@ const allFeatures: Feature[] = [
     color: '#FF6B9D',
     userTypes: [UserType.ACADEMIC_ADMIN, UserType.SYSTEM_ADMIN],
   },
+  {
+    id: 17,
+    title: '课表查看',
+    description: '以课表网格形式查看课程安排，支持多种查询维度',
+    icon: '📊',
+    color: '#FF9800',
+    userTypes: [], // 对所有用户可见
+  },
 ]
 
 // 根据用户类型过滤功能
@@ -154,20 +162,16 @@ const features = computed(() => {
 
   if (!userType) return []
 
-  // 学生和老师只能看到"我的课表"
+  // 学生和老师可以看到"我的课表"和"课表查看"
   if (userType === UserType.STUDENT || userType === UserType.TEACHER) {
-    return allFeatures.filter(f => f.title === '我的课表')
+    return allFeatures.filter(f => f.title === '我的课表' || f.title === '课表查看')
   }
 
   // 管理员：根据 userTypes 过滤功能
   return allFeatures.filter(f => {
-    // 如果 userTypes 未定义，该功能对所有用户可见
-    if (!f.userTypes) {
+    // 如果 userTypes 未定义或为空数组，该功能对所有用户可见
+    if (!f.userTypes || f.userTypes.length === 0) {
       return true
-    }
-    // 如果 userTypes 是空数组，该功能对任何用户都不可见
-    if (f.userTypes.length === 0) {
-      return false
     }
     // 否则，只对指定用户类型可见
     return f.userTypes.includes(userType)
@@ -221,6 +225,7 @@ const handleFeatureClick = (feature: Feature) => {
     '教学班-行政班关联管理': '/teaching-class-class-management',
     智能排课: '/schedule',
     我的课表: '/my-schedule',
+    课表查看: '/timetable-view',
   }
 
   const route = routeMap[feature.title]

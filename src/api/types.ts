@@ -523,3 +523,61 @@ export interface TeachingClassClassPageQuery {
   teaching_class_uuid?: string
   class_uuid?: string
 }
+
+// ========== 课表相关类型 ==========
+
+/**
+ * 查询方式枚举
+ */
+export type TimetableType = 'teacher' | 'student' | 'class' | 'classroom'
+
+/**
+ * 课表单元格数据（后端返回，蛇形命名）
+ */
+export interface TimetableCellDTO {
+  schedule_uuid: string
+  semester_name: string
+  teaching_class_name: string
+  course_name: string
+  teacher_name: string
+  classroom_name: string
+  day_of_week: number      // 1-7
+  section_start: number    // 起始节次
+  section_end: number      // 结束节次
+  weeks_json: string       // JSON字符串 "[1,2,3,4,5]"
+  is_locked: boolean
+  status: number           // 0-预览/1-正式
+  updated_at: string
+}
+
+/**
+ * 教师课表查询参数（蛇形命名）
+ */
+export interface TeacherTimetableQuery {
+  teacher_uuid: string
+  semester_uuid: string
+}
+
+/**
+ * 学生课表查询参数（蛇形命名）
+ */
+export interface StudentTimetableQuery {
+  student_uuid: string
+  semester_uuid: string
+}
+
+/**
+ * 班级课表查询参数（蛇形命名）
+ */
+export interface ClassTimetableQuery {
+  class_uuid: string
+  semester_uuid: string
+}
+
+/**
+ * 教室课表查询参数（蛇形命名）
+ */
+export interface ClassroomTimetableQuery {
+  classroom_uuid: string
+  semester_uuid: string
+}
