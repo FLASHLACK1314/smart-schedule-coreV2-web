@@ -11,6 +11,7 @@ interface Props {
   clearable?: boolean
   debounceDelay?: number
   initialOption?: SelectOption | null
+  loadOnFocus?: boolean // 是否在聚焦时自动加载数据，默认 false
 }
 
 // 选项类型
@@ -26,6 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
   clearable: true,
   debounceDelay: 500,
   initialOption: null,
+  loadOnFocus: false,
 })
 
 const emit = defineEmits<{
@@ -50,8 +52,11 @@ watch(searchKeyword, (newKeyword) => {
   if (searchTimer) clearTimeout(searchTimer)
 
   searchTimer = setTimeout(async () => {
+    // 修改：如果启用 loadOnFocus 且关键词为空，不清空结果
     if (!newKeyword.trim()) {
-      searchResults.value = []
+      if (!props.loadOnFocus) {
+        searchResults.value = []
+      }
       return
     }
 
@@ -94,9 +99,22 @@ useClickOutside(containerRef, () => {
 })
 
 // 处理输入框聚焦
-const handleFocus = () => {
+const handleFocus = async () => {
   if (!props.disabled) {
     isOpen.value = true
+    // 如果关键词为空且启用 loadOnFocus，则加载初始数据
+    if (!searchKeyword.value.trim() && props.loadOnFocus) {
+      loading.value = true
+      try {
+        const results = await props.fetchAsync('')
+        searchResults.value = results
+      } catch (err) {
+        console.error('初始加载失败:', err)
+        searchResults.value = []
+      } finally {
+        loading.value = false
+      }
+    }
   }
 }
 
@@ -170,7 +188,7 @@ const isEmpty = computed(() => {
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="isEmpty" class="search-select-empty">
+      <div v-else-if="isEmpty && searchResults.length === 0" class="search-select-empty">
         <span class="empty-icon">🔍</span>
         <span>请输入关键词搜索</span>
       </div>

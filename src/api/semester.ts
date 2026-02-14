@@ -16,3 +16,55 @@ export function getSemesterPage(params: SemesterPageQuery): Promise<PageDTO<Seme
     params,
   })
 }
+
+/**
+ * 获取单个学期信息
+ * @param semesterUuid 学期UUID
+ * @returns 学期信息
+ */
+export function getSemester(semesterUuid: string): Promise<SemesterInfoDTO> {
+  return request({
+    url: '/v1/semester/get',
+    method: 'get',
+    params: { semester_uuid: semesterUuid },
+  })
+}
+
+/**
+ * 新增学期
+ * @param semesterName 学期名称
+ * @returns void
+ */
+export function addSemester(semesterName: string): Promise<void> {
+  return request({
+    url: '/v1/semester/add',
+    method: 'post',
+    params: { semester_name: semesterName },
+  })
+}
+
+/**
+ * 更新学期信息
+ * @param data 学期数据
+ * @returns void
+ */
+export function updateSemester(data: { semester_uuid: string; semester_name: string }): Promise<void> {
+  return request({
+    url: '/v1/semester/update',
+    method: 'put',
+    params: data,
+  })
+}
+
+/**
+ * 删除学期
+ * @param semesterUuid 学期UUID
+ * @returns void
+ */
+export function deleteSemester(semesterUuid: string): Promise<void> {
+  return request({
+    url: '/v1/semester/delete',
+    method: 'delete',
+    params: { semester_uuid: semesterUuid },
+  })
+}

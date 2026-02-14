@@ -105,12 +105,12 @@ const statusOptions = [
 
 // 搜索学期选项
 const fetchSemesterOptions = async (keyword: string): Promise<SelectOption[]> => {
-  if (!keyword.trim()) return []
   try {
     const response = await getSemesterPage({
       page: 1,
       size: 20,
-      semester_name: keyword,
+      // 空关键词时不传搜索参数
+      ...(keyword.trim() ? { semester_name: keyword } : {})
     })
     return response.records.map((s) => ({
       label: s.semester_name,
@@ -171,13 +171,12 @@ const fetchClassroomOptions = async (keyword: string): Promise<SelectOption[]> =
 
 // 搜索教师选项
 const fetchTeacherOptions = async (keyword: string): Promise<SelectOption[]> => {
-  if (!keyword.trim()) return []
   try {
     const hasAlphaNumeric = /[a-zA-Z0-9]/.test(keyword)
     const response = await getTeacherPage({
       page: 1,
       size: 20,
-      [hasAlphaNumeric ? 'teacher_num' : 'teacher_name']: keyword,
+      ...(keyword.trim() ? { [hasAlphaNumeric ? 'teacher_num' : 'teacher_name']: keyword } : {})
     })
     return response.records.map((t) => ({
       label: `${t.teacher_name} (${t.teacher_num})`,
@@ -482,6 +481,7 @@ fetchSchedules()
               v-model="filterSemester"
               placeholder="搜索学期..."
               :fetch-async="fetchSemesterOptions"
+              load-on-focus
               class="filter-select-custom"
             />
           </div>
@@ -509,6 +509,7 @@ fetchSchedules()
               v-model="filterTeacher"
               placeholder="搜索教师..."
               :fetch-async="fetchTeacherOptions"
+              load-on-focus
               class="filter-select-custom"
             />
           </div>

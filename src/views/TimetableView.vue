@@ -127,15 +127,22 @@ const fetchSemesters = async () => {
 
 // 教师搜索
 const fetchTeachers = async (keyword: string) => {
-  const response = await getTeacherPage({
-    page: 1,
-    size: 50,
-    teacher_name: keyword,
-  })
-  return response.records.map((t) => ({
-    label: `${t.teacher_name} (${t.teacher_num})`,
-    value: t.teacher_uuid,
-  }))
+  try {
+    const hasAlphaNumeric = /[a-zA-Z0-9]/.test(keyword)
+    const response = await getTeacherPage({
+      page: 1,
+      size: 20,
+      // 空关键词时不传搜索参数，返回前20条
+      ...(keyword.trim() ? { [hasAlphaNumeric ? 'teacher_num' : 'teacher_name']: keyword } : {})
+    })
+    return response.records.map((t) => ({
+      label: `${t.teacher_name} (${t.teacher_num})`,
+      value: t.teacher_uuid,
+    }))
+  } catch (err) {
+    console.error('搜索教师失败:', err)
+    return []
+  }
 }
 
 // 学生搜索
@@ -414,6 +421,7 @@ fetchSemesters()
                 ? { label: selectedTeacherName, value: selectedTeacherUuid }
                 : null
             "
+            load-on-focus
             @change="
               (option: any) => {
                 if (option) selectedTeacherName = option.label
