@@ -31,6 +31,7 @@ const currentCourse = ref<AddCourseVO>({
   course_name: '',
   course_type_uuid: '',
   course_credit: 0,
+  course_hours: 32, // 默认值 32
 })
 
 // 获取课程类型列表（用于下拉选择）
@@ -102,6 +103,7 @@ const openAddDialog = () => {
     course_name: '',
     course_type_uuid: '',
     course_credit: 0,
+    course_hours: 32, // 默认值 32
   }
   showDialog.value = true
 }
@@ -115,6 +117,7 @@ const openEditDialog = (course: CourseInfoDTO) => {
     course_name: course.course_name,
     course_type_uuid: course.course_type_uuid,
     course_credit: course.course_credit,
+    course_hours: course.course_hours || 32, // 默认值 32
   }
   showDialog.value = true
 }
@@ -136,6 +139,11 @@ const saveCourse = async () => {
   }
   if (currentCourse.value.course_credit <= 0) {
     error('请输入有效的课程学分')
+    return
+  }
+  // 验证课程学时
+  if (!currentCourse.value.course_hours || currentCourse.value.course_hours <= 0) {
+    error('请输入有效的课程学时')
     return
   }
 
@@ -252,6 +260,7 @@ onMounted(async () => {
               <th>课程名称</th>
               <th>课程类型</th>
               <th>课程学分</th>
+              <th>课程学时</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -261,6 +270,7 @@ onMounted(async () => {
               <td>{{ course.course_name }}</td>
               <td>{{ course.course_type_name }}</td>
               <td>{{ course.course_credit }}</td>
+              <td>{{ course.course_hours || '-' }}</td>
               <td>
                 <div class="action-buttons">
                   <button class="btn-edit" @click="openEditDialog(course)">编辑</button>
@@ -322,6 +332,19 @@ onMounted(async () => {
               placeholder="请输入课程学分"
             />
             <small class="form-hint">支持小数，如 1.5、2.0 等</small>
+          </div>
+          <div class="form-group">
+            <label>课程学时</label>
+            <input
+              v-model.number="currentCourse.course_hours"
+              type="number"
+              step="1"
+              min="1"
+              max="200"
+              class="form-input"
+              placeholder="请输入课程学时"
+            />
+            <small class="form-hint">总课时数（整数）</small>
           </div>
         </div>
         <div class="dialog-footer">

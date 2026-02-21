@@ -291,16 +291,18 @@ export interface CourseInfoDTO {
   course_name: string
   course_type_uuid: string
   course_type_name: string
-  course_credit: number  // 支持小数
+  course_credit: number // 支持小数
+  course_hours?: number // 课程学时（整数）
 }
 
 // 添加/更新课程请求
 export interface AddCourseVO {
-  course_uuid?: string     // 更新时需要
-  course_num: string       // 课程编号（唯一）
+  course_uuid?: string // 更新时需要
+  course_num: string // 课程编号（唯一）
   course_name: string
   course_type_uuid: string
-  course_credit: number    // 支持小数
+  course_credit: number // 支持小数
+  course_hours: number // 课程学时（整数）
 }
 
 // 课程分页查询参数
