@@ -52,14 +52,16 @@ watch(searchKeyword, (newKeyword) => {
   if (searchTimer) clearTimeout(searchTimer)
 
   searchTimer = setTimeout(async () => {
-    // 修改：如果启用 loadOnFocus 且关键词为空，不清空结果
+    // 如果关键词为空
     if (!newKeyword.trim()) {
+      // 如果启用 loadOnFocus，不清空结果（因为会在 handleFocus 中加载）
       if (!props.loadOnFocus) {
         searchResults.value = []
       }
       return
     }
 
+    // 有关键词时执行搜索
     loading.value = true
     try {
       const results = await props.fetchAsync(newKeyword)
@@ -187,8 +189,8 @@ const isEmpty = computed(() => {
         <span>搜索中...</span>
       </div>
 
-      <!-- 空状态 -->
-      <div v-else-if="isEmpty && searchResults.length === 0" class="search-select-empty">
+      <!-- 空状态（仅在未启用 loadOnFocus 时显示"请输入关键词搜索"） -->
+      <div v-else-if="!loadOnFocus && isEmpty && searchResults.length === 0" class="search-select-empty">
         <span class="empty-icon">🔍</span>
         <span>请输入关键词搜索</span>
       </div>

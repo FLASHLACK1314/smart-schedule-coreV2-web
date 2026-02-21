@@ -68,14 +68,12 @@ const initialSemesterOption = ref<SelectOption | null>(null)
 
 // 搜索课程选项
 const fetchCourseOptions = async (keyword: string): Promise<SelectOption[]> => {
-  if (!keyword.trim()) return []
-
   try {
     const hasAlphaNumeric = /[a-zA-Z0-9]/.test(keyword)
     const response = await getCoursePage({
       page: 1,
       size: 20,
-      [hasAlphaNumeric ? 'course_num' : 'course_name']: keyword
+      ...(keyword.trim() ? { [hasAlphaNumeric ? 'course_num' : 'course_name']: keyword } : {})
     })
 
     return response.records.map(course => ({
@@ -92,14 +90,12 @@ const fetchCourseOptions = async (keyword: string): Promise<SelectOption[]> => {
 
 // 搜索教师选项
 const fetchTeacherOptions = async (keyword: string): Promise<SelectOption[]> => {
-  if (!keyword.trim()) return []
-
   try {
     const hasAlphaNumeric = /[a-zA-Z0-9]/.test(keyword)
     const response = await getTeacherPage({
       page: 1,
       size: 20,
-      [hasAlphaNumeric ? 'teacher_num' : 'teacher_name']: keyword
+      ...(keyword.trim() ? { [hasAlphaNumeric ? 'teacher_num' : 'teacher_name']: keyword } : {})
     })
 
     return response.records.map(teacher => ({
@@ -116,13 +112,11 @@ const fetchTeacherOptions = async (keyword: string): Promise<SelectOption[]> => 
 
 // 搜索学期选项
 const fetchSemesterOptions = async (keyword: string): Promise<SelectOption[]> => {
-  if (!keyword.trim()) return []
-
   try {
     const response = await getSemesterPage({
       page: 1,
       size: 20,
-      semester_name: keyword
+      ...(keyword.trim() ? { semester_name: keyword } : {})
     })
 
     return response.records.map(semester => ({
@@ -368,6 +362,7 @@ getTeachingClassPage({
               v-model="filterCourse"
               placeholder="搜索课程..."
               :fetch-async="fetchCourseOptions"
+              :load-on-focus="true"
               class="filter-select-custom"
             />
           </div>
@@ -377,6 +372,7 @@ getTeachingClassPage({
               v-model="filterTeacher"
               placeholder="搜索教师..."
               :fetch-async="fetchTeacherOptions"
+              :load-on-focus="true"
               class="filter-select-custom"
             />
           </div>
@@ -386,6 +382,7 @@ getTeachingClassPage({
               v-model="filterSemester"
               placeholder="搜索学期..."
               :fetch-async="fetchSemesterOptions"
+              :load-on-focus="true"
               class="filter-select-custom"
             />
           </div>
@@ -467,6 +464,7 @@ getTeachingClassPage({
               placeholder="搜索课程..."
               :fetch-async="fetchCourseOptions"
               :initial-option="initialCourseOption"
+              :load-on-focus="true"
             />
           </div>
 
@@ -477,6 +475,7 @@ getTeachingClassPage({
               placeholder="搜索教师..."
               :fetch-async="fetchTeacherOptions"
               :initial-option="initialTeacherOption"
+              :load-on-focus="true"
             />
           </div>
 
@@ -487,6 +486,7 @@ getTeachingClassPage({
               placeholder="搜索学期..."
               :fetch-async="fetchSemesterOptions"
               :initial-option="initialSemesterOption"
+              :load-on-focus="true"
             />
           </div>
         </div>
