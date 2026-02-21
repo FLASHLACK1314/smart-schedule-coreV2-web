@@ -53,11 +53,11 @@ const total = ref(0)
 
 // 当前编辑的学生
 const formData = ref<AddStudentVO | UpdateStudentVO>({
-  studentUuid: '',
-  studentId: '',
-  studentName: '',
-  classUuid: '',
-  studentPassword: '',
+  student_uuid: '',
+  student_id: '',
+  student_name: '',
+  class_uuid: '',
+  student_password: '',
 })
 
 // 确认密码（仅用于前端验证）
@@ -228,7 +228,7 @@ watch(dialogDepartment, (newDeptUuid, oldDeptUuid) => {
   // 只有当学院真正改变时才清空专业和班级
   if (newDeptUuid !== oldDeptUuid) {
     dialogMajor.value = ''
-    formData.value.classUuid = ''
+    formData.value.class_uuid = ''
   }
   if (newDeptUuid) {
     fetchMajors(newDeptUuid)
@@ -239,7 +239,7 @@ watch(dialogDepartment, (newDeptUuid, oldDeptUuid) => {
 watch(dialogMajor, (newMajorUuid, oldMajorUuid) => {
   // 只有当专业真正改变时才清空班级
   if (newMajorUuid !== oldMajorUuid) {
-    formData.value.classUuid = ''
+    formData.value.class_uuid = ''
   }
   if (newMajorUuid) {
     fetchClasses({ major_uuid: newMajorUuid })
@@ -250,10 +250,10 @@ watch(dialogMajor, (newMajorUuid, oldMajorUuid) => {
 const openAddDialog = () => {
   dialogMode.value = 'add'
   formData.value = {
-    studentId: '',
-    studentName: '',
-    classUuid: '',
-    studentPassword: '',
+    student_id: '',
+    student_name: '',
+    class_uuid: '',
+    student_password: '',
   }
   confirmPassword.value = ''
   dialogDepartment.value = ''
@@ -283,11 +283,11 @@ const openEditDialog = async (student: StudentInfoDTO) => {
 
   // 设置表单数据
   formData.value = {
-    studentUuid: student.student_uuid,
-    studentId: student.student_id,
-    studentName: student.student_name,
-    classUuid: studentClass,
-    studentPassword: '',
+    student_uuid: student.student_uuid,
+    student_id: student.student_id,
+    student_name: student.student_name,
+    class_uuid: studentClass,
+    student_password: '',
   }
   confirmPassword.value = ''
   showDialog.value = true
@@ -303,42 +303,42 @@ const validatePassword = (password: string): boolean => {
 // 保存学生
 const saveStudent = async () => {
   // 表单验证
-  if (!formData.value.studentId.trim()) {
+  if (!formData.value.student_id.trim()) {
     error('请输入学号')
     return
   }
-  if (!formData.value.studentName.trim()) {
+  if (!formData.value.student_name.trim()) {
     error('请输入姓名')
     return
   }
-  if (!formData.value.classUuid) {
+  if (!formData.value.class_uuid) {
     error('请选择班级')
     return
   }
 
   // 添加模式：密码必填
   if (dialogMode.value === 'add') {
-    if (!formData.value.studentPassword?.trim()) {
+    if (!formData.value.student_password?.trim()) {
       error('请输入密码')
       return
     }
-    if (!validatePassword(formData.value.studentPassword)) {
+    if (!validatePassword(formData.value.student_password)) {
       error('密码必须至少 8 位，且包含字母和数字')
       return
     }
-    if (formData.value.studentPassword !== confirmPassword.value) {
+    if (formData.value.student_password !== confirmPassword.value) {
       error('两次输入的密码不一致')
       return
     }
   }
 
   // 编辑模式：密码选填，但输入时需验证
-  if (dialogMode.value === 'edit' && formData.value.studentPassword?.trim()) {
-    if (!validatePassword(formData.value.studentPassword)) {
+  if (dialogMode.value === 'edit' && formData.value.student_password?.trim()) {
+    if (!validatePassword(formData.value.student_password)) {
       error('新密码必须至少 8 位，且包含字母和数字')
       return
     }
-    if (formData.value.studentPassword !== confirmPassword.value) {
+    if (formData.value.student_password !== confirmPassword.value) {
       error('两次输入的密码不一致')
       return
     }
@@ -351,14 +351,14 @@ const saveStudent = async () => {
     } else {
       const currentData = formData.value as UpdateStudentVO
       const updateData: UpdateStudentVO = {
-        studentUuid: currentData.studentUuid,
-        studentId: currentData.studentId,
-        studentName: currentData.studentName,
-        classUuid: currentData.classUuid,
+        student_uuid: currentData.student_uuid,
+        student_id: currentData.student_id,
+        student_name: currentData.student_name,
+        class_uuid: currentData.class_uuid,
       }
       // 如果填写了新密码，则包含在请求中
-      if (currentData.studentPassword?.trim()) {
-        updateData.studentPassword = currentData.studentPassword
+      if (currentData.student_password?.trim()) {
+        updateData.student_password = currentData.student_password
       }
       await updateStudent(updateData)
       success('更新学生成功')
@@ -535,7 +535,7 @@ onMounted(async () => {
           <div class="form-group">
             <label>学号 *</label>
             <input
-              v-model="formData.studentId"
+              v-model="formData.student_id"
               type="text"
               class="form-input"
               placeholder="请输入学号"
@@ -546,7 +546,7 @@ onMounted(async () => {
 
           <div class="form-group">
             <label>姓名 *</label>
-            <input v-model="formData.studentName" type="text" class="form-input" placeholder="请输入姓名" />
+            <input v-model="formData.student_name" type="text" class="form-input" placeholder="请输入姓名" />
           </div>
 
           <div class="form-group">
@@ -571,7 +571,7 @@ onMounted(async () => {
 
           <div class="form-group">
             <label>所属班级 *</label>
-            <select v-model="formData.classUuid" class="form-select" :disabled="!dialogMajor">
+            <select v-model="formData.class_uuid" class="form-select" :disabled="!dialogMajor">
               <option value="">请选择班级</option>
               <option v-for="cls in filteredClasses" :key="cls.class_uuid" :value="cls.class_uuid">
                 {{ cls.class_name }}
@@ -581,18 +581,18 @@ onMounted(async () => {
 
           <div v-if="dialogMode === 'add'" class="form-group">
             <label>密码 *</label>
-            <input v-model="formData.studentPassword" type="password" class="form-input" placeholder="请输入密码" />
+            <input v-model="formData.student_password" type="password" class="form-input" placeholder="请输入密码" />
             <small class="form-hint">至少 8 位，包含字母和数字</small>
           </div>
 
-          <div v-if="dialogMode === 'add' || (dialogMode === 'edit' && formData.studentPassword)" class="form-group">
+          <div v-if="dialogMode === 'add' || (dialogMode === 'edit' && formData.student_password)" class="form-group">
             <label>{{ dialogMode === 'add' ? '确认密码 *' : '确认新密码' }}</label>
             <input v-model="confirmPassword" type="password" class="form-input" :placeholder="dialogMode === 'add' ? '请再次输入密码' : '留空则不更新密码'" />
           </div>
 
-          <div v-if="dialogMode === 'edit' && !formData.studentPassword" class="form-group">
+          <div v-if="dialogMode === 'edit' && !formData.student_password" class="form-group">
             <label>新密码</label>
-            <input v-model="formData.studentPassword" type="password" class="form-input" placeholder="留空则不更新密码" />
+            <input v-model="formData.student_password" type="password" class="form-input" placeholder="留空则不更新密码" />
             <small class="form-hint">如需修改密码请输入新密码，留空则不更新</small>
           </div>
         </div>

@@ -132,14 +132,14 @@ const fetchTeachingClassOptions = async (keyword: string): Promise<SelectOption[
     })
     // 前端过滤（因为后端可能不支持按名称搜索）
     const filtered = response.records.filter((tc) =>
-      tc.teachingClassName.includes(keyword)
+      tc.teaching_class_name.includes(keyword)
     )
     return filtered.map((tc) => ({
-      label: `${tc.teachingClassName} - ${tc.courseName} - ${tc.teacherName}`,
-      value: tc.teachingClassUuid,
-      teachingClassName: tc.teachingClassName,
-      courseName: tc.courseName,
-      teacherName: tc.teacherName,
+      label: `${tc.teaching_class_name} - ${tc.course_name} - ${tc.teacher_name}`,
+      value: tc.teaching_class_uuid,
+      teaching_class_name: tc.teaching_class_name,
+      course_name: tc.course_name,
+      teacher_name: tc.teacher_name,
     }))
   } catch (err) {
     console.error('搜索教学班失败:', err)
@@ -332,7 +332,7 @@ const openEditDialog = async (schedule: ScheduleInfoDTO) => {
     (s) => s.semester_name === schedule.semester_name
   )
   const teachingClass = teachingClasses.value.find(
-    (tc) => tc.teachingClassName === schedule.teaching_class_name
+    (tc) => tc.teaching_class_name === schedule.teaching_class_name
   )
   const classroom = classrooms.value.find(
     (c) => c.classroom_name === schedule.classroom_name
@@ -342,7 +342,7 @@ const openEditDialog = async (schedule: ScheduleInfoDTO) => {
   formData.value = {
     schedule_uuid: schedule.schedule_uuid,
     semester_uuid: semester?.semester_uuid || '',
-    teaching_class_uuid: teachingClass?.teachingClassUuid || '',
+    teaching_class_uuid: teachingClass?.teaching_class_uuid || '',
     classroom_uuid: classroom?.classroom_uuid || '',
     day_of_week: schedule.day_of_week,
     section_start: schedule.section_start,
@@ -364,8 +364,8 @@ const openEditDialog = async (schedule: ScheduleInfoDTO) => {
   }
   if (teachingClass) {
     initialTeachingClassOption.value = {
-      label: `${teachingClass.teachingClassName} - ${teachingClass.courseName} - ${teachingClass.teacherName}`,
-      value: teachingClass.teachingClassUuid,
+      label: `${teachingClass.teaching_class_name} - ${teachingClass.course_name} - ${teachingClass.teacher_name}`,
+      value: teachingClass.teaching_class_uuid,
     }
   }
   if (classroom) {

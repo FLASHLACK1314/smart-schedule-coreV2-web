@@ -54,11 +54,11 @@ const total = ref(0)
 
 // 当前编辑的教学班
 const formData = ref<AddTeachingClassVO>({
-  teachingClassUuid: '',
-  courseUuid: '',
-  teacherUuid: '',
-  semesterUuid: '',
-  teachingClassName: '',
+  teaching_class_uuid: '',
+  course_uuid: '',
+  teacher_uuid: '',
+  semester_uuid: '',
+  teaching_class_name: '',
 })
 
 // 编辑时的初始选项（用于 SearchSelect 回显）
@@ -200,10 +200,10 @@ watch(filterSemester, (newSemesterUuid) => {
 const openAddDialog = () => {
   dialogMode.value = 'add'
   formData.value = {
-    courseUuid: '',
-    teacherUuid: '',
-    semesterUuid: '',
-    teachingClassName: '',
+    course_uuid: '',
+    teacher_uuid: '',
+    semester_uuid: '',
+    teaching_class_name: '',
   }
   // 清空初始选项
   initialCourseOption.value = null
@@ -221,20 +221,20 @@ const openEditDialog = async (teachingClass: TeachingClassInfoDTO) => {
     await preloadDataForEdit()
   }
 
-  // 根据 courseName 查找 courseUuid
-  const course = courses.value.find(c => c.course_name === teachingClass.courseName)
-  // 根据 teacherName 查找 teacherUuid
-  const teacher = teachers.value.find(t => t.teacher_name === teachingClass.teacherName)
-  // 根据 semesterName 查找 semesterUuid
-  const semester = semesters.value.find(s => s.semester_name === teachingClass.semesterName)
+  // 根据 course_name 查找 courseUuid
+  const course = courses.value.find(c => c.course_name === teachingClass.course_name)
+  // 根据 teacher_name 查找 teacherUuid
+  const teacher = teachers.value.find(t => t.teacher_name === teachingClass.teacher_name)
+  // 根据 semester_name 查找 semesterUuid
+  const semester = semesters.value.find(s => s.semester_name === teachingClass.semester_name)
 
   // 设置表单数据
   formData.value = {
-    teachingClassUuid: teachingClass.teachingClassUuid,
-    courseUuid: course?.course_uuid || '',
-    teacherUuid: teacher?.teacher_uuid || '',
-    semesterUuid: semester?.semester_uuid || '',
-    teachingClassName: teachingClass.teachingClassName,
+    teaching_class_uuid: teachingClass.teaching_class_uuid,
+    course_uuid: course?.course_uuid || '',
+    teacher_uuid: teacher?.teacher_uuid || '',
+    semester_uuid: semester?.semester_uuid || '',
+    teaching_class_name: teachingClass.teaching_class_name,
   }
 
   // 设置初始选项（用于 SearchSelect 回显）
@@ -263,19 +263,19 @@ const openEditDialog = async (teachingClass: TeachingClassInfoDTO) => {
 // 保存教学班
 const saveTeachingClass = async () => {
   // 表单验证
-  if (!formData.value.teachingClassName.trim()) {
+  if (!formData.value.teaching_class_name.trim()) {
     error('请输入教学班名称')
     return
   }
-  if (!formData.value.courseUuid) {
+  if (!formData.value.course_uuid) {
     error('请选择课程')
     return
   }
-  if (!formData.value.teacherUuid) {
+  if (!formData.value.teacher_uuid) {
     error('请选择教师')
     return
   }
-  if (!formData.value.semesterUuid) {
+  if (!formData.value.semester_uuid) {
     error('请选择学期')
     return
   }
@@ -419,15 +419,15 @@ getTeachingClassPage({
             </tr>
           </thead>
           <tbody>
-            <tr v-for="tc in teachingClasses" :key="tc.teachingClassUuid">
-              <td>{{ tc.teachingClassName }}</td>
-              <td>{{ tc.courseName }}</td>
-              <td>{{ tc.teacherName }}</td>
-              <td>{{ tc.semesterName }}</td>
+            <tr v-for="tc in teachingClasses" :key="tc.teaching_class_uuid">
+              <td>{{ tc.teaching_class_name }}</td>
+              <td>{{ tc.course_name }}</td>
+              <td>{{ tc.teacher_name }}</td>
+              <td>{{ tc.semester_name }}</td>
               <td v-if="canManageTeachingClass">
                 <div class="action-buttons">
                   <button class="btn-edit" @click="openEditDialog(tc)">编辑</button>
-                  <button class="btn-delete" @click="deleteTeachingClass(tc.teachingClassUuid, tc.teachingClassName)">
+                  <button class="btn-delete" @click="deleteTeachingClass(tc.teaching_class_uuid, tc.teaching_class_name)">
                     删除
                   </button>
                 </div>
@@ -449,7 +449,7 @@ getTeachingClassPage({
           <div class="form-group">
             <label>教学班名称 *</label>
             <input
-              v-model="formData.teachingClassName"
+              v-model="formData.teaching_class_name"
               type="text"
               class="form-input"
               placeholder="例如：高等数学-张老师-2024级1班"
@@ -460,7 +460,7 @@ getTeachingClassPage({
           <div class="form-group">
             <label>课程 *</label>
             <SearchSelect
-              v-model="formData.courseUuid"
+              v-model="formData.course_uuid"
               placeholder="搜索课程..."
               :fetch-async="fetchCourseOptions"
               :initial-option="initialCourseOption"
@@ -471,7 +471,7 @@ getTeachingClassPage({
           <div class="form-group">
             <label>教师 *</label>
             <SearchSelect
-              v-model="formData.teacherUuid"
+              v-model="formData.teacher_uuid"
               placeholder="搜索教师..."
               :fetch-async="fetchTeacherOptions"
               :initial-option="initialTeacherOption"
@@ -482,7 +482,7 @@ getTeachingClassPage({
           <div class="form-group">
             <label>学期 *</label>
             <SearchSelect
-              v-model="formData.semesterUuid"
+              v-model="formData.semester_uuid"
               placeholder="搜索学期..."
               :fetch-async="fetchSemesterOptions"
               :initial-option="initialSemesterOption"

@@ -391,21 +391,21 @@ export interface StudentInfoDTO {
   class_info: StudentClassInfoDTO
 }
 
-// 添加学生请求体（驼峰命名 - RequestBody）
+// 添加学生请求体（蛇形命名 - RequestBody）
 export interface AddStudentVO {
-  studentId: string
-  studentName: string
-  classUuid: string
-  studentPassword: string
+  student_id: string
+  student_name: string
+  class_uuid: string
+  student_password: string
 }
 
-// 更新学生请求体（驼峰命名 - RequestBody）
+// 更新学生请求体（蛇形命名 - RequestBody）
 export interface UpdateStudentVO {
-  studentUuid: string
-  studentId: string
-  studentName: string
-  classUuid: string
-  studentPassword?: string  // 可选，留空则不更新密码
+  student_uuid: string
+  student_id: string
+  student_name: string
+  class_uuid: string
+  student_password?: string  // 可选，留空则不更新密码
 }
 
 // 学生分页查询参数（蛇形命名 - Query）
@@ -429,13 +429,13 @@ export interface AcademicAdminInfoDTO {
   department_info: DepartmentInfoDTO
 }
 
-// 添加/更新教务管理员请求（请求体 - 驼峰命名）
+// 添加/更新教务管理员请求（蛇形命名）
 export interface AddAcademicAdminVO {
-  academicUuid?: string      // 更新时需要
-  academicNum: string        // 教务工号
-  academicName: string       // 教务名称
-  departmentUuid: string     // 所属学院UUID
-  academicPassword?: string  // 密码（添加必填，更新可选）
+  academic_uuid?: string      // 更新时需要
+  academic_num: string        // 教务工号
+  academic_name: string       // 教务名称
+  department_uuid: string     // 所属学院UUID
+  academic_password?: string  // 密码（添加必填，更新可选）
 }
 
 // 教务管理员分页查询参数（查询参数 - 蛇形命名）
@@ -465,22 +465,22 @@ export interface SemesterPageQuery {
 
 // ========== 教学班相关类型 ==========
 
-// 教学班信息 DTO
+// 教学班信息 DTO（蛇形命名 - 后端返回）
 export interface TeachingClassInfoDTO {
-  teachingClassUuid: string
-  courseName: string
-  teacherName: string
-  semesterName: string
-  teachingClassName: string
+  teaching_class_uuid: string
+  course_name: string
+  teacher_name: string
+  semester_name: string
+  teaching_class_name: string
 }
 
-// 添加/更新教学班请求（驼峰命名）
+// 添加/更新教学班请求（蛇形命名）
 export interface AddTeachingClassVO {
-  teachingClassUuid?: string  // 更新时需要
-  courseUuid: string
-  teacherUuid: string
-  semesterUuid: string
-  teachingClassName: string
+  teaching_class_uuid?: string  // 更新时需要
+  course_uuid: string
+  teacher_uuid: string
+  semester_uuid: string
+  teaching_class_name: string
 }
 
 // 教学班分页查询参数（蛇形命名）

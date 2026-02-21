@@ -10,13 +10,66 @@ const request = axios.create({
   },
 })
 
-// 请求拦截器：添加 token
+// 驼峰命名转蛇形命名
+function camelToSnakeCase(obj: any): any {
+  if (obj === null || typeof obj !== 'object') {
+    return obj
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(camelToSnakeCase)
+  }
+
+  const result: any = {}
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      // 将驼峰转为蛇形：courseUuid -> course_uuid
+      const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
+      result[snakeKey] = camelToSnakeCase(obj[key])
+    }
+  }
+  return result
+}
+
+// 蛇形命名转驼峰命名
+function snakeToCamelCase(obj: any): any {
+  if (obj === null || typeof obj !== 'object') {
+    return obj
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(snakeToCamelCase)
+  }
+
+  const result: any = {}
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      // 将蛇形转为驼峰：course_uuid -> courseUuid
+      const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+      result[camelKey] = snakeToCamelCase(obj[key])
+    }
+  }
+  return result
+}
+
+// 请求拦截器：添加 token 并转换字段名
 request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('token')
     if (token && config.headers) {
       config.headers.Authorization = token
     }
+
+    // 转换请求数据：驼峰命名 -> 蛇形命名
+    if (config.data && typeof config.data === 'object') {
+      config.data = camelToSnakeCase(config.data)
+    }
+
+    // 转换 URL 参数：驼峰命名 -> 蛇形命名
+    if (config.params && typeof config.params === 'object') {
+      config.params = camelToSnakeCase(config.params)
+    }
+
     return config
   },
   (error: AxiosError) => {

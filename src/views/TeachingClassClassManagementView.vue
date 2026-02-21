@@ -324,8 +324,8 @@ onMounted(async () => {
         <div class="filter-group">
           <select v-model="filterTeachingClass" class="filter-select" :disabled="teachingClassesLoading">
             <option value="">全部教学班</option>
-            <option v-for="tc in teachingClasses" :key="tc.teachingClassUuid" :value="tc.teachingClassUuid">
-              {{ tc.teachingClassName }} - {{ tc.courseName }}
+            <option v-for="tc in teachingClasses" :key="tc.teaching_class_uuid" :value="tc.teaching_class_uuid">
+              {{ tc.teaching_class_name }} - {{ tc.course_name }}
             </option>
           </select>
 
@@ -416,8 +416,8 @@ onMounted(async () => {
             <label>教学班</label>
             <select v-model="currentRelation.teaching_class_uuid" class="form-select">
               <option value="">请选择教学班</option>
-              <option v-for="tc in teachingClasses" :key="tc.teachingClassUuid" :value="tc.teachingClassUuid">
-                {{ tc.teachingClassName }} - {{ tc.courseName }} - {{ tc.teacherName }}
+              <option v-for="tc in teachingClasses" :key="tc.teaching_class_uuid" :value="tc.teaching_class_uuid">
+                {{ tc.teaching_class_name }} - {{ tc.course_name }} - {{ tc.teacher_name }}
               </option>
             </select>
           </div>

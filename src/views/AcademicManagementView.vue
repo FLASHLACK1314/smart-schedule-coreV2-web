@@ -27,11 +27,11 @@ const total = ref(0)
 
 // 当前编辑的教务管理员
 const formData = ref<AddAcademicAdminVO>({
-  academicUuid: '',
-  academicNum: '',
-  academicName: '',
-  departmentUuid: '',
-  academicPassword: '',
+  academic_uuid: '',
+  academic_num: '',
+  academic_name: '',
+  department_uuid: '',
+  academic_password: '',
 })
 
 // 获取学院列表（用于下拉选择）
@@ -108,11 +108,11 @@ watch(filterDepartment, (newDeptUuid) => {
 const openAddDialog = () => {
   dialogMode.value = 'add'
   formData.value = {
-    academicUuid: '',
-    academicNum: '',
-    academicName: '',
-    departmentUuid: '',
-    academicPassword: '',
+    academic_uuid: '',
+    academic_num: '',
+    academic_name: '',
+    department_uuid: '',
+    academic_password: '',
   }
   confirmPassword.value = ''
   showDialog.value = true
@@ -122,11 +122,11 @@ const openAddDialog = () => {
 const openEditDialog = (academic: AcademicAdminInfoDTO) => {
   dialogMode.value = 'edit'
   formData.value = {
-    academicUuid: academic.academic_uuid || '',
-    academicNum: academic.academic_num || '',
-    academicName: academic.academic_name || '',
-    departmentUuid: academic.department_info?.department_uuid || '',
-    academicPassword: '',
+    academic_uuid: academic.academic_uuid || '',
+    academic_num: academic.academic_num || '',
+    academic_name: academic.academic_name || '',
+    department_uuid: academic.department_info?.department_uuid || '',
+    academic_password: '',
   }
   confirmPassword.value = ''
   showDialog.value = true
@@ -135,23 +135,23 @@ const openEditDialog = (academic: AcademicAdminInfoDTO) => {
 // 保存教务管理员
 const saveAcademic = async () => {
   // 表单验证
-  if (!formData.value.academicNum.trim()) {
+  if (!formData.value.academic_num.trim()) {
     error('请输入教务工号')
     return
   }
-  if (!formData.value.academicName.trim()) {
+  if (!formData.value.academic_name.trim()) {
     error('请输入教务名称')
     return
   }
-  if (!formData.value.departmentUuid) {
+  if (!formData.value.department_uuid) {
     error('请选择所属学院')
     return
   }
-  if (dialogMode.value === 'add' && !formData.value.academicPassword?.trim()) {
+  if (dialogMode.value === 'add' && !formData.value.academic_password?.trim()) {
     error('请输入密码')
     return
   }
-  if (dialogMode.value === 'add' && formData.value.academicPassword !== confirmPassword.value) {
+  if (dialogMode.value === 'add' && formData.value.academic_password !== confirmPassword.value) {
     error('两次输入的密码不一致')
     return
   }
@@ -296,10 +296,10 @@ onMounted(() => {
         <div class="dialog-body">
           <div class="form-group">
             <label class="form-label">教务工号 *</label>
-            <input 
-              v-model="formData.academicNum" 
-              type="text" 
-              class="form-input" 
+            <input
+              v-model="formData.academic_num"
+              type="text"
+              class="form-input"
               placeholder="请输入教务工号"
               :disabled="dialogMode === 'edit'"
             />
@@ -307,12 +307,12 @@ onMounted(() => {
 
           <div class="form-group">
             <label class="form-label">教务名称 *</label>
-            <input v-model="formData.academicName" type="text" class="form-input" placeholder="请输入教务名称" />
+            <input v-model="formData.academic_name" type="text" class="form-input" placeholder="请输入教务名称" />
           </div>
 
           <div class="form-group">
             <label class="form-label">所属学院 *</label>
-            <select v-model="formData.departmentUuid" class="form-input">
+            <select v-model="formData.department_uuid" class="form-input">
               <option value="">请选择学院</option>
               <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
                 {{ dept.department_name }}
@@ -322,7 +322,7 @@ onMounted(() => {
 
           <div v-if="dialogMode === 'add'" class="form-group">
             <label class="form-label">密码 *</label>
-            <input v-model="formData.academicPassword" type="password" class="form-input" placeholder="请输入密码" />
+            <input v-model="formData.academic_password" type="password" class="form-input" placeholder="请输入密码" />
           </div>
 
           <div v-if="dialogMode === 'add'" class="form-group">
@@ -332,7 +332,7 @@ onMounted(() => {
 
           <div v-if="dialogMode === 'edit'" class="form-group">
             <label class="form-label">密码（留空表示不更改）</label>
-            <input v-model="formData.academicPassword" type="password" class="form-input" placeholder="请输入新密码（可选）" />
+            <input v-model="formData.academic_password" type="password" class="form-input" placeholder="请输入新密码（可选）" />
           </div>
         </div>
 
