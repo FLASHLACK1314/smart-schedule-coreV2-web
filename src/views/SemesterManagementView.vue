@@ -34,10 +34,14 @@ const currentSemester = ref<{
   semester_uuid: string
   semester_name: string
   semester_weeks: number
+  start_date: string
+  end_date: string
 }>({
   semester_uuid: '',
   semester_name: '',
   semester_weeks: 18, // 默认18周
+  start_date: '', // 开始日期
+  end_date: '', // 结束日期
 })
 
 // 获取学期列表
@@ -79,6 +83,8 @@ const openAddDialog = () => {
     semester_uuid: '',
     semester_name: '',
     semester_weeks: 18, // 默认18周
+    start_date: '',
+    end_date: '',
   }
   showDialog.value = true
 }
@@ -90,6 +96,8 @@ const openEditDialog = (semester: SemesterInfoDTO) => {
     semester_uuid: semester.semester_uuid,
     semester_name: semester.semester_name,
     semester_weeks: semester.semester_weeks,
+    start_date: semester.start_date,
+    end_date: semester.end_date,
   }
   showDialog.value = true
 }
@@ -105,16 +113,36 @@ const saveSemester = async () => {
     error('学期周数必须大于0')
     return
   }
+  if (!currentSemester.value.start_date) {
+    error('请选择开始日期')
+    return
+  }
+  if (!currentSemester.value.end_date) {
+    error('请选择结束日期')
+    return
+  }
+  // 验证结束日期不能早于开始日期
+  if (new Date(currentSemester.value.end_date) < new Date(currentSemester.value.start_date)) {
+    error('结束日期不能早于开始日期')
+    return
+  }
 
   try {
     if (dialogMode.value === 'add') {
-      await addSemester(currentSemester.value.semester_name, currentSemester.value.semester_weeks)
+      await addSemester({
+        semester_name: currentSemester.value.semester_name,
+        semester_weeks: currentSemester.value.semester_weeks,
+        start_date: currentSemester.value.start_date,
+        end_date: currentSemester.value.end_date,
+      })
       success('添加学期成功')
     } else {
       await updateSemester({
         semester_uuid: currentSemester.value.semester_uuid,
         semester_name: currentSemester.value.semester_name,
         semester_weeks: currentSemester.value.semester_weeks,
+        start_date: currentSemester.value.start_date,
+        end_date: currentSemester.value.end_date,
       })
       success('更新学期成功')
     }
@@ -208,6 +236,8 @@ onMounted(() => {
             <tr>
               <th>学期名称</th>
               <th>学期周数</th>
+              <th>开始日期</th>
+              <th>结束日期</th>
               <th v-if="isAdmin">操作</th>
             </tr>
           </thead>
@@ -215,6 +245,8 @@ onMounted(() => {
             <tr v-for="semester in semesters" :key="semester.semester_uuid">
               <td>{{ semester.semester_name }}</td>
               <td>{{ semester.semester_weeks }} 周</td>
+              <td>{{ semester.start_date || '-' }}</td>
+              <td>{{ semester.end_date || '-' }}</td>
               <td v-if="isAdmin">
                 <div class="action-buttons">
                   <button class="btn-edit" @click="openEditDialog(semester)">编辑</button>
@@ -256,6 +288,22 @@ onMounted(() => {
               min="1"
             />
             <small class="form-hint">通常为 16-20 周</small>
+          </div>
+          <div class="form-group">
+            <label>开始日期</label>
+            <input
+              v-model="currentSemester.start_date"
+              type="date"
+              class="form-input"
+            />
+          </div>
+          <div class="form-group">
+            <label>结束日期</label>
+            <input
+              v-model="currentSemester.end_date"
+              type="date"
+              class="form-input"
+            />
           </div>
         </div>
         <div class="dialog-footer">

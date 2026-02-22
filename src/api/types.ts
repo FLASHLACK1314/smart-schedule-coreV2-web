@@ -456,6 +456,8 @@ export interface SemesterInfoDTO {
   semester_uuid: string
   semester_name: string
   semester_weeks: number // 学期周数
+  start_date: string // 学期开始日期,格式: YYYY-MM-DD
+  end_date: string // 学期结束日期,格式: YYYY-MM-DD
 }
 
 // 学期分页查询参数
@@ -550,7 +552,6 @@ export interface TimetableCellDTO {
   section_end: number      // 结束节次
   weeks_json: string       // JSON字符串 "[1,2,3,4,5]"
   credit_hours?: number    // 排课学时（可选）
-  is_locked: boolean
   status: number           // 0-预览/1-正式
   updated_at: string
 }
@@ -606,7 +607,6 @@ export interface AddScheduleVO {
   section_start: number
   section_end: number
   weeks_json: string       // JSON 字符串 "[1,2,3,4,5]"
-  is_locked?: boolean      // 默认 false
   status: number           // 0-预览/1-正式
 }
 

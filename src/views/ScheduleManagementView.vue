@@ -74,7 +74,6 @@ const formData = ref<AddScheduleVO>({
   section_start: 1,
   section_end: 2,
   weeks_json: '[]',
-  is_locked: false,
   status: 0,
 })
 
@@ -299,7 +298,6 @@ const openAddDialog = () => {
     section_start: 1,
     section_end: 2,
     weeks_json: '[]',
-    is_locked: false,
     status: 0,
   }
   weeksInput.value = ''
@@ -311,11 +309,6 @@ const openAddDialog = () => {
 
 // 打开编辑对话框
 const openEditDialog = async (schedule: ScheduleInfoDTO) => {
-  if (schedule.is_locked) {
-    error('该排课记录已锁定，无法编辑')
-    return
-  }
-
   dialogMode.value = 'edit'
 
   // 确保预加载数据已加载
@@ -348,7 +341,6 @@ const openEditDialog = async (schedule: ScheduleInfoDTO) => {
     section_start: schedule.section_start,
     section_end: schedule.section_end,
     weeks_json: schedule.weeks_json,
-    is_locked: schedule.is_locked,
     status: schedule.status,
   }
 
@@ -429,10 +421,6 @@ const saveSchedule = async () => {
 
 // 删除排课
 const deleteSchedule = async (schedule: ScheduleInfoDTO) => {
-  if (schedule.is_locked) {
-    error('该排课记录已锁定，无法删除')
-    return
-  }
   if (!confirm(`确定要删除该排课记录吗？\n${schedule.teaching_class_name} - ${schedule.course_name}`)) {
     return
   }
@@ -567,7 +555,6 @@ fetchSchedules()
               <th>周次</th>
               <th>学时</th>
               <th>状态</th>
-              <th>锁定</th>
               <th v-if="canManage">操作</th>
             </tr>
           </thead>
@@ -587,22 +574,16 @@ fetchSchedules()
                   {{ displayStatus(schedule.status) }}
                 </span>
               </td>
-              <td>
-                <span v-if="schedule.is_locked" class="lock-badge">🔒 已锁定</span>
-                <span v-else class="unlock-badge">🔓 未锁定</span>
-              </td>
               <td v-if="canManage">
                 <div class="action-buttons">
                   <button
                     class="btn-edit"
-                    :disabled="schedule.is_locked"
                     @click="openEditDialog(schedule)"
                   >
                     编辑
                   </button>
                   <button
                     class="btn-delete"
-                    :disabled="schedule.is_locked"
                     @click="deleteSchedule(schedule)"
                   >
                     删除
@@ -987,16 +968,6 @@ fetchSchedules()
 }
 
 /* 锁定标记 */
-.lock-badge {
-  color: #f44336;
-  font-size: 0.85rem;
-}
-
-.unlock-badge {
-  color: #4caf50;
-  font-size: 0.85rem;
-}
-
 /* 操作按钮 */
 .action-buttons {
   display: flex;

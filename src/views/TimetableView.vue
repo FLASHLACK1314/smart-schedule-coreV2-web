@@ -637,9 +637,8 @@ fetchSemesters()
           </div>
           <div class="detail-row">
             <span class="detail-label">状态</span>
-            <span class="detail-value" :class="{ locked: selectedCell.is_locked }">
-              {{ selectedCell.is_locked ? '已锁定' : '未锁定' }}
-              {{ selectedCell.status === 0 ? '（预览）' : '（正式）' }}
+            <span class="detail-value">
+              {{ selectedCell.status === 0 ? '预览' : '正式' }}
             </span>
           </div>
           <div class="detail-row">
@@ -1082,10 +1081,6 @@ fetchSemesters()
   font-weight: 600;
   text-align: right;
   max-width: 60%;
-}
-
-.detail-value.locked {
-  color: #f44336;
 }
 
 /* 响应式设计 */
