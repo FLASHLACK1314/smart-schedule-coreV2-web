@@ -415,6 +415,7 @@ getTeachingClassPage({
               <th>课程</th>
               <th>教师</th>
               <th>学期</th>
+              <th>总学时</th>
               <th v-if="canManageTeachingClass">操作</th>
             </tr>
           </thead>
@@ -424,6 +425,7 @@ getTeachingClassPage({
               <td>{{ tc.course_name }}</td>
               <td>{{ tc.teacher_name }}</td>
               <td>{{ tc.semester_name }}</td>
+              <td>{{ tc.teaching_class_hours ?? '-' }}</td>
               <td v-if="canManageTeachingClass">
                 <div class="action-buttons">
                   <button class="btn-edit" @click="openEditDialog(tc)">编辑</button>

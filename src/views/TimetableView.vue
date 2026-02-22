@@ -631,6 +631,10 @@ fetchSemesters()
             <span class="detail-label">上课周次</span>
             <span class="detail-value">{{ formatWeeks(selectedCell.weeks_json) }}</span>
           </div>
+          <div class="detail-row" v-if="selectedCell.credit_hours">
+            <span class="detail-label">学时</span>
+            <span class="detail-value">{{ selectedCell.credit_hours }}</span>
+          </div>
           <div class="detail-row">
             <span class="detail-label">状态</span>
             <span class="detail-value" :class="{ locked: selectedCell.is_locked }">

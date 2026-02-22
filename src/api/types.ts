@@ -474,6 +474,7 @@ export interface TeachingClassInfoDTO {
   teacher_name: string
   semester_name: string
   teaching_class_name: string
+  teaching_class_hours?: number // 教学班总学时（可选）
 }
 
 // 添加/更新教学班请求（蛇形命名）
@@ -548,6 +549,7 @@ export interface TimetableCellDTO {
   section_start: number    // 起始节次
   section_end: number      // 结束节次
   weeks_json: string       // JSON字符串 "[1,2,3,4,5]"
+  credit_hours?: number    // 排课学时（可选）
   is_locked: boolean
   status: number           // 0-预览/1-正式
   updated_at: string

@@ -565,6 +565,7 @@ fetchSchedules()
               <th>星期</th>
               <th>节次</th>
               <th>周次</th>
+              <th>学时</th>
               <th>状态</th>
               <th>锁定</th>
               <th v-if="canManage">操作</th>
@@ -580,6 +581,7 @@ fetchSchedules()
               <td>{{ displayDayOfWeek(schedule.day_of_week) }}</td>
               <td>{{ schedule.section_start }}-{{ schedule.section_end }}节</td>
               <td>{{ displayWeeks(schedule.weeks_json) }}</td>
+              <td>{{ schedule.credit_hours ?? '-' }}</td>
               <td>
                 <span :class="['status-badge', statusBadgeClass(schedule.status)]">
                   {{ displayStatus(schedule.status) }}
