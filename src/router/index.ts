@@ -124,6 +124,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/auto-schedule',
+    name: 'AutoSchedule',
+    component: () => import('@/views/auto-schedule/AutoScheduleView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/timetable-view',
     name: 'TimetableView',
     component: () => import('@/views/TimetableView.vue'),

@@ -28,7 +28,11 @@
       "mcp__smart-schedule-coreV2__read_project_oas_5pos7u",
       "Bash(npx vue-tsc:*)",
       "Bash(cd C:\\\\project\\\\毕设代码\\\\smart-schedule-coreV2-web:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "mcp__smart-schedule-coreV2__read_project_oas_4tuy7b",
+      "mcp__smart-schedule-coreV2__refresh_project_oas_4tuy7b",
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_4tuy7b",
+      "Bash(true:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

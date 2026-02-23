@@ -477,6 +477,10 @@ export interface TeachingClassInfoDTO {
   semester_name: string
   teaching_class_name: string
   teaching_class_hours?: number // 教学班总学时（可选）
+  weekly_sessions?: number      // 每周上课次数
+  sections_per_session?: number // 每次上课节次数
+  scheduled_status?: number     // 排课状态：0-未排课, 1-已排课
+  scheduled_hours?: number      // 已排课学时
 }
 
 // 添加/更新教学班请求（蛇形命名）
@@ -486,6 +490,8 @@ export interface AddTeachingClassVO {
   teacher_uuid: string
   semester_uuid: string
   teaching_class_name: string
+  weekly_sessions?: number      // 每周上课次数，默认 1
+  sections_per_session?: number // 每次上课节次数，默认 2
 }
 
 // 教学班分页查询参数（蛇形命名）
@@ -495,6 +501,7 @@ export interface TeachingClassPageQuery {
   course_uuid?: string
   teacher_uuid?: string
   semester_uuid?: string
+  scheduled_status?: number // 排课状态筛选：0-未排课, 1-已排课
 }
 
 // ========== 教学班-行政班关联相关类型 ==========
@@ -622,4 +629,83 @@ export interface SchedulePageQuery {
   teacher_uuid?: string
   day_of_week?: number
   status?: number
+}
+
+// ========== 智能排课相关类型 ==========
+
+/**
+ * 执行排课请求（蛇形命名）
+ */
+export interface AutoScheduleVO {
+  semester_uuid: string                           // 学期UUID（必填）
+  teaching_class_uuids: string[]                  // 待排课的教学班UUID列表（必填）
+  weekly_sessions_config?: Record<string, number> // 每周上课次数配置（可选）
+  classroom_uuids?: string[]                      // 可用教室UUID列表（可选）
+  population_size?: number                        // 种群大小（默认100）
+  max_generations?: number                        // 迭代次数（默认500）
+  crossover_rate?: number                         // 交叉概率（默认0.8）
+  mutation_rate?: number                          // 变异概率（默认0.2）
+  elite_size?: number                             // 精英保留数量（默认10）
+}
+
+/**
+ * 课程安排
+ */
+export interface CourseAppointment {
+  teaching_class_uuid: string
+  teaching_class_name: string
+  course_uuid: string
+  course_name: string
+  teacher_uuid: string
+  teacher_name: string
+  classroom_uuid: string
+  classroom_name: string
+  day_of_week: number        // 1-7
+  section_start: number
+  section_end: number
+  weeks_json: string         // JSON字符串数组
+  status: number             // 0-预览/1-正式
+}
+
+/**
+ * 冲突报告
+ */
+export interface ConflictReport {
+  teacher_conflicts: ConflictItem[]
+  classroom_conflicts: ConflictItem[]
+  class_conflicts: ConflictItem[]
+}
+
+/**
+ * 冲突项
+ */
+export interface ConflictItem {
+  conflict_type: string
+  description: string
+  affected_teaching_classes: string[]
+}
+
+/**
+ * 排课统计信息（蛇形命名）
+ */
+export interface ScheduleStatistics {
+  total_teaching_classes: number    // 总教学班数
+  scheduled_teaching_classes: number // 已排课数量
+  total_sessions: number            // 总排课次数
+  total_hours: number               // 总学时
+  average_fitness: number           // 平均适应度
+}
+
+/**
+ * 自动排课结果（蛇形命名）
+ */
+export interface AutoScheduleResult {
+  semester_uuid: string
+  schedule_map: Record<string, CourseAppointment[]> // 教学班UUID -> 课程安排列表
+  fitness: number                          // 总体适应度分数
+  hard_conflicts: number                   // 硬约束冲突数量
+  soft_conflicts: number                   // 软约束冲突数量
+  unscheduled_teaching_classes: string[]   // 未完成排课的教学班列表
+  conflict_report: ConflictReport          // 冲突报告
+  statistics: ScheduleStatistics           // 排课统计信息
 }

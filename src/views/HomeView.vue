@@ -327,7 +327,7 @@ const handleFeatureClick = (feature: Feature) => {
     课程教师资格管理: '/course-qualification-management',
     教学班管理: '/teaching-class-management',
     '教学班-行政班关联管理': '/teaching-class-class-management',
-    智能排课: '/schedule',
+    智能排课: '/auto-schedule',
     我的课表: '/my-schedule',
     课表查看: '/timetable-view',
     排课管理: '/schedule-management',

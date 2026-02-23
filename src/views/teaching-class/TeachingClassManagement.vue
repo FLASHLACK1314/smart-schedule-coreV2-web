@@ -42,6 +42,7 @@ const loading = ref(false)
 const filterCourse = ref<string>('')
 const filterTeacher = ref<string>('')
 const filterSemester = ref<string>('')
+const filterScheduledStatus = ref<number | undefined>(undefined)
 
 // 对话框相关
 const showDialog = ref(false)
@@ -59,6 +60,8 @@ const formData = ref<AddTeachingClassVO>({
   teacher_uuid: '',
   semester_uuid: '',
   teaching_class_name: '',
+  weekly_sessions: 1,      // 新增默认值
+  sections_per_session: 2, // 新增默认值
 })
 
 // 编辑时的初始选项（用于 SearchSelect 回显）
@@ -151,6 +154,7 @@ const fetchTeachingClasses = async (params?: {
   course_uuid?: string
   teacher_uuid?: string
   semester_uuid?: string
+  scheduled_status?: number
 }) => {
   loading.value = true
   try {
@@ -175,6 +179,7 @@ watch(filterCourse, (newCourseUuid) => {
     course_uuid: newCourseUuid || undefined,
     teacher_uuid: filterTeacher.value || undefined,
     semester_uuid: filterSemester.value || undefined,
+    scheduled_status: filterScheduledStatus.value,
   })
 })
 
@@ -184,6 +189,7 @@ watch(filterTeacher, (newTeacherUuid) => {
     course_uuid: filterCourse.value || undefined,
     teacher_uuid: newTeacherUuid || undefined,
     semester_uuid: filterSemester.value || undefined,
+    scheduled_status: filterScheduledStatus.value,
   })
 })
 
@@ -193,6 +199,17 @@ watch(filterSemester, (newSemesterUuid) => {
     course_uuid: filterCourse.value || undefined,
     teacher_uuid: filterTeacher.value || undefined,
     semester_uuid: newSemesterUuid || undefined,
+    scheduled_status: filterScheduledStatus.value,
+  })
+})
+
+// 监听排课状态筛选
+watch(filterScheduledStatus, (newStatus) => {
+  fetchTeachingClasses({
+    course_uuid: filterCourse.value || undefined,
+    teacher_uuid: filterTeacher.value || undefined,
+    semester_uuid: filterSemester.value || undefined,
+    scheduled_status: newStatus,
   })
 })
 
@@ -204,6 +221,8 @@ const openAddDialog = () => {
     teacher_uuid: '',
     semester_uuid: '',
     teaching_class_name: '',
+    weekly_sessions: 1,
+    sections_per_session: 2,
   }
   // 清空初始选项
   initialCourseOption.value = null
@@ -235,6 +254,8 @@ const openEditDialog = async (teachingClass: TeachingClassInfoDTO) => {
     teacher_uuid: teacher?.teacher_uuid || '',
     semester_uuid: semester?.semester_uuid || '',
     teaching_class_name: teachingClass.teaching_class_name,
+    weekly_sessions: teachingClass.weekly_sessions ?? 1,
+    sections_per_session: teachingClass.sections_per_session ?? 2,
   }
 
   // 设置初始选项（用于 SearchSelect 回显）
@@ -293,6 +314,7 @@ const saveTeachingClass = async () => {
       course_uuid: filterCourse.value || undefined,
       teacher_uuid: filterTeacher.value || undefined,
       semester_uuid: filterSemester.value || undefined,
+      scheduled_status: filterScheduledStatus.value,
     })
   } catch (err) {
     console.error('保存教学班失败:', err)
@@ -311,6 +333,7 @@ const deleteTeachingClass = async (teachingClassUuid: string, teachingClassName:
       course_uuid: filterCourse.value || undefined,
       teacher_uuid: filterTeacher.value || undefined,
       semester_uuid: filterSemester.value || undefined,
+      scheduled_status: filterScheduledStatus.value,
     })
   } catch (err) {
     console.error('删除教学班失败:', err)
@@ -386,6 +409,14 @@ getTeachingClassPage({
               class="filter-select-custom"
             />
           </div>
+
+          <div class="filter-item">
+            <select v-model.number="filterScheduledStatus" class="filter-select">
+              <option :value="undefined">全部状态</option>
+              <option :value="0">未排课</option>
+              <option :value="1">已排课</option>
+            </select>
+          </div>
         </div>
 
         <button v-if="canManageTeachingClass" class="btn-primary" @click="openAddDialog">
@@ -416,6 +447,9 @@ getTeachingClassPage({
               <th>教师</th>
               <th>学期</th>
               <th>总学时</th>
+              <th>排课状态</th>
+              <th>每周课次</th>
+              <th>每次节次</th>
               <th v-if="canManageTeachingClass">操作</th>
             </tr>
           </thead>
@@ -426,6 +460,14 @@ getTeachingClassPage({
               <td>{{ tc.teacher_name }}</td>
               <td>{{ tc.semester_name }}</td>
               <td>{{ tc.teaching_class_hours ?? '-' }}</td>
+              <td>
+                <span v-if="tc.scheduled_status === 1" class="status-badge scheduled">
+                  已排课 ({{ tc.scheduled_hours ?? 0 }}学时)
+                </span>
+                <span v-else class="status-badge unscheduled">未排课</span>
+              </td>
+              <td>{{ tc.weekly_sessions ?? 1 }} 次/周</td>
+              <td>{{ tc.sections_per_session ?? 2 }} 节</td>
               <td v-if="canManageTeachingClass">
                 <div class="action-buttons">
                   <button class="btn-edit" @click="openEditDialog(tc)">编辑</button>
@@ -490,6 +532,33 @@ getTeachingClassPage({
               :initial-option="initialSemesterOption"
               :load-on-focus="true"
             />
+          </div>
+
+          <!-- 每周上课次数 -->
+          <div class="form-group">
+            <label>每周上课次数</label>
+            <input
+              v-model.number="formData.weekly_sessions"
+              type="number"
+              min="1"
+              max="7"
+              class="form-input"
+            />
+            <small class="form-hint">每周 1-7 次</small>
+          </div>
+
+          <!-- 每次上课节次数 -->
+          <div class="form-group">
+            <label>每次上课节次数</label>
+            <input
+              v-model.number="formData.sections_per_session"
+              type="number"
+              min="1"
+              max="6"
+              step="2"
+              class="form-input"
+            />
+            <small class="form-hint">建议 2 节连上</small>
           </div>
         </div>
         <div class="dialog-footer">
@@ -741,6 +810,27 @@ getTeachingClassPage({
 
 .data-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* 排课状态标签 */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-badge.scheduled {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #4caf50;
+}
+
+.status-badge.unscheduled {
+  background: rgba(158, 158, 158, 0.2);
+  border: 1px solid rgba(158, 158, 158, 0.3);
+  color: #9e9e9e;
 }
 
 /* 操作按钮 */
