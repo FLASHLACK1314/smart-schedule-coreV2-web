@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTeachingClassPage } from '@/api/teachingClass'
 import { getSemesterPage } from '@/api/semester'
-import { executeSchedule, confirmSchedule, clearSchedulePreview } from '@/api/autoSchedule'
-import type { TeachingClassInfoDTO, SemesterInfoDTO, ScheduleResultDTO } from '@/api/types'
+import { executeAutoSchedule, confirmSchedule, clearSchedulePreview, saveSchedulePreview } from '@/api/autoSchedule'
+import type { AutoScheduleResult, ScheduleMode, TeacherSelectionStrategy } from '@/api/types'
 import { useMessage } from '@/composables/useMessage'
 import { useUserStore } from '@/stores/user'
 import SearchSelect from '@/components/SearchSelect.vue'
+import CourseClassMapper from './components/CourseClassMapper.vue'
+import ResourceConfig from './components/ResourceConfig.vue'
+import AlgorithmConfig from './components/AlgorithmConfig.vue'
+import ResultPreview from './components/ResultPreview.vue'
 
 defineOptions({
   name: 'AutoScheduleView',
@@ -20,6 +23,13 @@ interface SelectOption {
   [key: string]: any
 }
 
+// 课程映射项类型
+interface CourseMappingItem {
+  course_uuid: string
+  class_uuids: string[]
+  teacher_uuid?: string
+}
+
 const router = useRouter()
 const { success, error, warning, info } = useMessage()
 const userStore = useUserStore()
@@ -28,27 +38,55 @@ const userStore = useUserStore()
 const currentStep = ref<1 | 2 | 3>(1)
 
 // 加载状态
-const isLoading = ref(false)
 const isExecuting = ref(false)
 
-// 学期相关
+// ========== 步骤1：表单状态 ==========
 const selectedSemester = ref<string>('')
 const initialSemesterOption = ref<SelectOption | null>(null)
-const semesters = ref<SemesterInfoDTO[]>([])
 
-// 教学班相关
-const teachingClasses = ref<TeachingClassInfoDTO[]>([])
-const selectedTeachingClasses = ref<Set<string>>(new Set())
-const weeklySessionsConfig = ref<Record<string, number>>({})
+// 课程-行政班映射
+const courseMappings = ref<CourseMappingItem[]>([])
 
-// 排课结果
-const scheduleResult = ref<ScheduleResultDTO | null>(null)
+// 教师选择策略
+const teacherSelectionStrategy = ref<TeacherSelectionStrategy>('balanced')
+const showTeacherStrategy = ref(false)
+
+// 排课模式
+const scheduleModeType = ref<0 | 1>(0) // 0-预览模式, 1-正式模式
+
+// 资源范围
+const buildingUuids = ref<string[]>([])
+const classroomTypeUuids = ref<string[]>([])
+
+// 算法参数
+const populationSize = ref(100)
+const maxGenerations = ref(500)
+const crossoverRate = ref(0.8)
+const mutationRate = ref(0.2)
+const eliteSize = ref(10)
+
+// ========== 步骤2：结果状态 ==========
+const scheduleResult = ref<AutoScheduleResult | null>(null)
+
+// 引用子组件
+const courseClassMapperRef = ref<InstanceType<typeof CourseClassMapper> | null>(null)
 
 // 权限控制
 const canAutoSchedule = computed(() => {
   const userType = userStore.userType
   return userType === 'SYSTEM_ADMIN' || userType === 'ACADEMIC_ADMIN'
 })
+
+// 表单验证
+const isFormValid = computed(() => {
+  if (!selectedSemester.value) return false
+  if (courseMappings.value.length === 0) return false
+  return courseMappings.value.every(item =>
+    item.course_uuid && item.class_uuids && item.class_uuids.length > 0
+  )
+})
+
+// ========== 数据获取函数 ==========
 
 // 搜索学期选项
 const fetchSemesterOptions = async (keyword: string): Promise<SelectOption[]> => {
@@ -69,62 +107,13 @@ const fetchSemesterOptions = async (keyword: string): Promise<SelectOption[]> =>
   }
 }
 
-// 学期变化时加载教学班
-const handleSemesterChange = async (semesterUuid: string) => {
-  selectedSemester.value = semesterUuid
-  selectedTeachingClasses.value.clear()
-  weeklySessionsConfig.value = {}
-  await loadTeachingClasses(semesterUuid)
-}
+// ========== 事件处理函数 ==========
 
-// 加载教学班列表
-const loadTeachingClasses = async (semesterUuid: string) => {
-  isLoading.value = true
-  try {
-    const response = await getTeachingClassPage({
-      page: 1,
-      size: 1000,
-      semester_uuid: semesterUuid,
-    })
-    teachingClasses.value = response.records
-  } catch (err) {
-    console.error('加载教学班失败:', err)
-    error('加载教学班失败: ' + (err as Error).message)
-  } finally {
-    isLoading.value = false
-  }
+// 学期变化
+const handleSemesterChange = (semesterUuid: string | string[]) => {
+  const uuid = typeof semesterUuid === 'string' ? semesterUuid : semesterUuid[0]
+  selectedSemester.value = uuid || ''
 }
-
-// 切换教学班选择
-const toggleTeachingClass = (uuid: string) => {
-  if (selectedTeachingClasses.value.has(uuid)) {
-    selectedTeachingClasses.value.delete(uuid)
-    delete weeklySessionsConfig.value[uuid]
-  } else {
-    selectedTeachingClasses.value.add(uuid)
-    weeklySessionsConfig.value[uuid] = 1 // 默认每周1次
-  }
-}
-
-// 全选/取消全选
-const toggleSelectAll = () => {
-  if (selectedTeachingClasses.value.size === teachingClasses.value.length) {
-    // 全部取消
-    selectedTeachingClasses.value.clear()
-    weeklySessionsConfig.value = {}
-  } else {
-    // 全选
-    teachingClasses.value.forEach(tc => {
-      selectedTeachingClasses.value.add(tc.teaching_class_uuid)
-      weeklySessionsConfig.value[tc.teaching_class_uuid] = tc.weekly_sessions ?? 1
-    })
-  }
-}
-
-// 是否全选
-const isAllSelected = computed(() => {
-  return teachingClasses.value.length > 0 && selectedTeachingClasses.value.size === teachingClasses.value.length
-})
 
 // 执行排课
 const handleExecuteSchedule = async () => {
@@ -133,27 +122,88 @@ const handleExecuteSchedule = async () => {
     warning('请选择学期')
     return
   }
-  if (selectedTeachingClasses.value.size === 0) {
-    warning('请至少选择一个教学班')
+
+  if (courseMappings.value.length === 0) {
+    warning('请至少添加一个课程配置')
     return
+  }
+
+  // 验证每个配置
+  for (const config of courseMappings.value) {
+    if (!config.course_uuid) {
+      warning('请选择课程')
+      return
+    }
+    if (!config.class_uuids || config.class_uuids.length === 0) {
+      warning('请至少选择一个行政班级')
+      return
+    }
   }
 
   isExecuting.value = true
   try {
-    const response = await executeSchedule({
-      semester_uuid: selectedSemester.value,
-      teaching_class_uuids: Array.from(selectedTeachingClasses.value),
-      weekly_sessions_config: weeklySessionsConfig.value,
+    // 构建请求参数（新版 API 格式）
+    const courseClassMapping: Record<string, string[]> = {}
+    const teacherAssignment: Record<string, string> = {}
+
+    courseMappings.value.forEach(item => {
+      courseClassMapping[item.course_uuid] = item.class_uuids
+      if (item.teacher_uuid) {
+        teacherAssignment[item.course_uuid] = item.teacher_uuid
+      }
     })
+
+    const requestParams = {
+      mode: 'ADMIN_CLASS' as ScheduleMode,
+      semester_uuid: selectedSemester.value,
+      course_class_mapping: courseClassMapping,
+      teacher_assignment: Object.keys(teacherAssignment).length > 0 ? teacherAssignment : undefined,
+      teacher_selection_strategy: teacherSelectionStrategy.value,
+      // 资源范围参数
+      building_uuids: buildingUuids.value.length > 0 ? buildingUuids.value : undefined,
+      classroom_type_uuids: classroomTypeUuids.value.length > 0 ? classroomTypeUuids.value : undefined,
+      // 算法参数
+      population_size: populationSize.value,
+      max_generations: maxGenerations.value,
+      crossover_rate: crossoverRate.value,
+      mutation_rate: mutationRate.value,
+      elite_size: eliteSize.value,
+      // 排课模式
+      schedule_mode: scheduleModeType.value,
+    }
+
+    const response = await executeAutoSchedule(requestParams)
+
+    // 调试：打印 API 返回的原始数据
+    console.log('[AutoScheduleView] API response:', response)
+    console.log('[AutoScheduleView] schedule_map:', response.schedule_map)
+    console.log('[AutoScheduleView] schedule_map type:', typeof response.schedule_map)
+    if (response.schedule_map) {
+      const keys = Object.keys(response.schedule_map)
+      console.log('[AutoScheduleView] schedule_map keys:', keys)
+      const firstKey = keys[0]
+      if (firstKey) {
+        const firstItem = response.schedule_map[firstKey]
+        console.log('[AutoScheduleView] First key:', firstKey)
+        console.log('[AutoScheduleView] First item:', firstItem)
+        if (Array.isArray(firstItem) && firstItem.length > 0) {
+          console.log('[AutoScheduleView] First item detail:', JSON.stringify(firstItem[0], null, 2))
+        }
+      }
+    }
 
     scheduleResult.value = response
     currentStep.value = 2
 
-    // 根据结果显示不同的消息
-    if (response.status === 'success') {
-      success('排课完成！所有教学班已成功排课')
-    } else if (response.status === 'partial') {
-      warning(`排课部分完成！已排课 ${response.stats.scheduled_count}/${response.stats.total_teaching_classes} 个教学班`)
+    // 根据结果显示不同的消息（兼容 success 和 is_success 两种字段名）
+    const isSuccess = response.is_success ?? response.success ?? false
+    if (isSuccess) {
+      if (response.statistics.scheduled_teaching_classes === response.statistics.total_teaching_classes) {
+        success('排课完成！所有教学班已成功排课')
+      } else {
+        const stats = response.statistics
+        warning(`排课部分完成！已排课 ${stats.scheduled_teaching_classes}/${stats.total_teaching_classes} 个教学班`)
+      }
     } else {
       error('排课失败！请检查冲突信息后重试')
     }
@@ -165,18 +215,10 @@ const handleExecuteSchedule = async () => {
   }
 }
 
-// 确认方案
-const handleConfirmSchedule = async () => {
-  if (!selectedSemester.value) return
-
-  try {
-    await confirmSchedule(selectedSemester.value)
-    success('排课方案已确认生效！')
-    currentStep.value = 3
-  } catch (err) {
-    console.error('确认方案失败:', err)
-    error('确认方案失败: ' + (err as Error).message)
-  }
+// 重新排课
+const handleReschedule = () => {
+  currentStep.value = 1
+  scheduleResult.value = null
 }
 
 // 清除预览
@@ -194,10 +236,31 @@ const handleClearPreview = async () => {
   }
 }
 
-// 重新排课
-const handleReschedule = () => {
-  currentStep.value = 1
-  scheduleResult.value = null
+// 保存预览
+const handleSavePreview = async () => {
+  if (!selectedSemester.value || !scheduleResult.value) return
+
+  try {
+    await saveSchedulePreview(selectedSemester.value, scheduleResult.value)
+    success('预览方案已保存！您可以继续排课其他教学班')
+  } catch (err) {
+    console.error('保存预览失败:', err)
+    error('保存预览失败: ' + (err as Error).message)
+  }
+}
+
+// 确认方案
+const handleConfirmSchedule = async () => {
+  if (!selectedSemester.value) return
+
+  try {
+    await confirmSchedule(selectedSemester.value)
+    success('排课方案已确认生效！')
+    currentStep.value = 3
+  } catch (err) {
+    console.error('确认方案失败:', err)
+    error('确认方案失败: ' + (err as Error).message)
+  }
 }
 
 // 查看课表
@@ -209,21 +272,6 @@ const goToTimetable = () => {
 const goBack = () => {
   router.push('/')
 }
-
-// 初始化：加载学期列表
-const init = async () => {
-  try {
-    const response = await getSemesterPage({
-      page: 1,
-      size: 1000,
-    })
-    semesters.value = response.records
-  } catch (err) {
-    console.error('加载学期失败:', err)
-  }
-}
-
-init()
 </script>
 
 <template>
@@ -263,7 +311,7 @@ init()
       <div v-if="currentStep === 1" class="step-content">
         <div class="content-header">
           <h2 class="content-title">选择排课参数</h2>
-          <p class="content-subtitle">选择学期和需要排课的教学班</p>
+          <p class="content-subtitle">按行政班级进行智能排课</p>
         </div>
 
         <div class="parameter-section">
@@ -280,172 +328,102 @@ init()
             />
           </div>
 
-          <!-- 教学班列表 -->
-          <div v-if="selectedSemester" class="teaching-classes-section">
-            <div class="section-header">
-              <h3>选择教学班</h3>
-              <button class="btn-text" @click="toggleSelectAll">
-                {{ isAllSelected ? '取消全选' : '全选' }}
-              </button>
-            </div>
+          <!-- 课程-行政班映射配置 -->
+          <CourseClassMapper
+            ref="courseClassMapperRef"
+            v-model="courseMappings"
+          />
 
-            <div v-if="isLoading" class="loading-state">
-              <div class="loading-spinner"></div>
-              <p>加载中...</p>
-            </div>
+          <!-- 资源范围配置 -->
+          <ResourceConfig
+            v-model:building-uuids="buildingUuids"
+            v-model:classroom-type-uuids="classroomTypeUuids"
+          />
 
-            <div v-else-if="teachingClasses.length === 0" class="empty-state">
-              <div class="empty-icon">📭</div>
-              <p>该学期暂无教学班</p>
-            </div>
+          <!-- 算法参数配置 -->
+          <AlgorithmConfig
+            v-model:population-size="populationSize"
+            v-model:max-generations="maxGenerations"
+            v-model:crossover-rate="crossoverRate"
+            v-model:mutation-rate="mutationRate"
+            v-model:elite-size="eliteSize"
+          />
 
-            <div v-else class="teaching-classes-grid">
-              <div
-                v-for="tc in teachingClasses"
-                :key="tc.teaching_class_uuid"
-                class="teaching-class-card"
-                :class="{ selected: selectedTeachingClasses.has(tc.teaching_class_uuid) }"
-                @click="toggleTeachingClass(tc.teaching_class_uuid)"
-              >
-                <div class="card-checkbox">
-                  <input
-                    type="checkbox"
-                    :checked="selectedTeachingClasses.has(tc.teaching_class_uuid)"
-                    readonly
-                  />
-                </div>
-                <div class="card-content">
-                  <h4 class="card-title">{{ tc.teaching_class_name }}</h4>
-                  <div class="card-info">
-                    <span class="info-item">📚 {{ tc.course_name }}</span>
-                    <span class="info-item">👨‍🏫 {{ tc.teacher_name }}</span>
-                  </div>
-                </div>
-                <div v-if="selectedTeachingClasses.has(tc.teaching_class_uuid)" class="card-config">
-                  <label>每周课次:</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="7"
-                    :value="weeklySessionsConfig[tc.teaching_class_uuid] ?? tc.weekly_sessions ?? 1"
-                    @input="(e) => weeklySessionsConfig[tc.teaching_class_uuid] = Number((e.target as HTMLInputElement).value)"
-                    @click.stop
-                  />
+          <!-- 教师选择策略配置 -->
+          <div class="collapsible-section">
+            <div class="section-header" @click="showTeacherStrategy = !showTeacherStrategy">
+              <h3>教师选择策略（可选）</h3>
+              <span class="toggle-icon">{{ showTeacherStrategy ? 'v' : '>' }}</span>
+            </div>
+            <div v-show="showTeacherStrategy" class="section-content">
+              <div class="form-group">
+                <label>教师选择策略</label>
+                <div class="radio-group">
+                  <label class="radio-label">
+                    <input type="radio" value="balanced" v-model="teacherSelectionStrategy" />
+                    <span>均衡分配（默认）</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" value="random" v-model="teacherSelectionStrategy" />
+                    <span>随机分配</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" value="first" v-model="teacherSelectionStrategy" />
+                    <span>优先分配第一个教师</span>
+                  </label>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 操作按钮 -->
-        <div class="action-bar">
-          <button
-            class="btn-primary btn-large"
-            :disabled="!selectedSemester || selectedTeachingClasses.size === 0"
-            @click="handleExecuteSchedule"
-          >
-            <span v-if="isExecuting" class="spinner"></span>
-            <span>{{ isExecuting ? '排课中...' : '开始排课' }}</span>
-          </button>
+          <!-- 排课模式选择 -->
+          <div class="schedule-mode-selector">
+            <label>排课模式</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" :value="0" v-model="scheduleModeType" />
+                <span>预览模式（推荐）</span>
+                <small>排课结果仅保存在预览表中，不影响正式课表</small>
+              </label>
+              <label class="radio-label">
+                <input type="radio" :value="1" v-model="scheduleModeType" />
+                <span>正式模式</span>
+                <small>排课结果直接写入正式课表</small>
+              </label>
+            </div>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="action-bar">
+            <button
+              class="btn-primary btn-large"
+              type="button"
+              :disabled="!isFormValid"
+              @click="handleExecuteSchedule"
+            >
+              <span v-if="isExecuting" class="spinner"></span>
+              <span>{{ isExecuting ? '排课中...' : '开始排课' }}</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- 步骤2：预览结果 -->
       <div v-if="currentStep === 2 && scheduleResult" class="step-content">
-        <div class="content-header">
-          <h2 class="content-title">排课结果预览</h2>
-          <p class="content-subtitle">
-            <span v-if="scheduleResult.status === 'success'" class="status-success">✅ 排课成功</span>
-            <span v-else-if="scheduleResult.status === 'partial'" class="status-warning">⚠️ 部分成功</span>
-            <span v-else class="status-error">❌ 排课失败</span>
-          </p>
-        </div>
-
-        <!-- 统计卡片 -->
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon">📊</div>
-            <div class="stat-content">
-              <div class="stat-value">{{ scheduleResult.stats.total_teaching_classes }}</div>
-              <div class="stat-label">总教学班</div>
-            </div>
-          </div>
-          <div class="stat-card success">
-            <div class="stat-icon">✅</div>
-            <div class="stat-content">
-              <div class="stat-value">{{ scheduleResult.stats.scheduled_count }}</div>
-              <div class="stat-label">已排课</div>
-            </div>
-          </div>
-          <div class="stat-card error">
-            <div class="stat-icon">❌</div>
-            <div class="stat-content">
-              <div class="stat-value">{{ scheduleResult.stats.unscheduled_count }}</div>
-              <div class="stat-label">未排课</div>
-            </div>
-          </div>
-          <div class="stat-card" :class="{ warning: scheduleResult.stats.conflict_count > 0 }">
-            <div class="stat-icon">⚠️</div>
-            <div class="stat-content">
-              <div class="stat-value">{{ scheduleResult.stats.conflict_count }}</div>
-              <div class="stat-label">冲突数</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 冲突提示 -->
-        <div v-if="scheduleResult.conflicts.length > 0" class="conflicts-section">
-          <h3>冲突详情</h3>
-          <div class="conflicts-list">
-            <div v-for="conflict in scheduleResult.conflicts" :key="conflict.teaching_class_uuid" class="conflict-item">
-              <div class="conflict-icon">⚠️</div>
-              <div class="conflict-content">
-                <h4>{{ conflict.teaching_class_name }}</h4>
-                <p>{{ conflict.conflict_description }}</p>
-                <span class="conflict-type">{{ conflict.conflict_type === 'teacher' ? '教师冲突' : conflict.conflict_type === 'classroom' ? '教室冲突' : '班级冲突' }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 排课详情表格 -->
-        <div v-if="scheduleResult.schedules.length > 0" class="schedules-section">
-          <h3>排课详情 ({{ scheduleResult.schedules.length }} 条)</h3>
-          <div class="table-container">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>教学班</th>
-                  <th>课程</th>
-                  <th>教师</th>
-                  <th>教室</th>
-                  <th>星期</th>
-                  <th>节次</th>
-                  <th>周次</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="schedule in scheduleResult.schedules" :key="schedule.schedule_uuid">
-                  <td>{{ schedule.teaching_class_name }}</td>
-                  <td>{{ schedule.course_name }}</td>
-                  <td>{{ schedule.teacher_name }}</td>
-                  <td>{{ schedule.classroom_name }}</td>
-                  <td>周{{ schedule.day_of_week }}</td>
-                  <td>{{ schedule.section_start }}-{{ schedule.section_end }}</td>
-                  <td>{{ schedule.weeks_json }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ResultPreview :result="scheduleResult" />
 
         <!-- 操作按钮 -->
         <div class="action-bar">
-          <button class="btn-secondary" @click="handleReschedule">重新排课</button>
-          <button class="btn-secondary" @click="handleClearPreview">清除预览</button>
+          <button class="btn-secondary" type="button" @click="handleReschedule">
+            重新排课
+          </button>
+          <button class="btn-secondary" type="button" @click="handleClearPreview">
+            清除预览
+          </button>
           <button
-            v-if="scheduleResult.status !== 'failed'"
+            v-if="(scheduleResult.is_success ?? scheduleResult.success)"
             class="btn-primary"
+            type="button"
             @click="handleConfirmSchedule"
           >
             确认方案
@@ -459,11 +437,11 @@ init()
         <h2 class="success-title">排课方案已确认！</h2>
         <p class="success-message">排课方案已成功应用到系统中，您可以查看课表或继续排课。</p>
         <div class="success-actions">
-          <button class="btn-primary" @click="goToTimetable">
+          <button class="btn-primary" type="button" @click="goToTimetable">
             <span class="btn-icon">📊</span>
             查看课表
           </button>
-          <button class="btn-secondary" @click="handleReschedule">
+          <button class="btn-secondary" type="button" @click="handleReschedule">
             <span class="btn-icon">🔄</span>
             继续排课
           </button>
@@ -654,158 +632,130 @@ init()
   font-weight: 500;
 }
 
-/* 教学班区域 */
-.teaching-classes-section {
-  margin-top: 2rem;
+/* 折叠面板 */
+.collapsible-section {
+  background: rgba(30, 30, 50, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  transition: all 0.3s ease;
 }
 
-.section-header {
+.collapsible-section .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.section-header h3 {
-  color: #ffffff;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.btn-text {
-  background: transparent;
-  border: none;
-  color: #00d4ff;
-  font-size: 0.9rem;
-  font-weight: 500;
+  padding: 1rem 1.5rem;
   cursor: pointer;
+  user-select: none;
   transition: all 0.3s ease;
 }
 
-.btn-text:hover {
-  color: #7c3aed;
-  text-decoration: underline;
+.collapsible-section .section-header:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-/* 加载和空状态 */
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 3rem 2rem;
+.collapsible-section .section-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.toggle-icon {
   color: #a0aec0;
+  font-size: 0.9rem;
+  transition: transform 0.3s ease;
 }
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #00d4ff;
-  border-radius: 50%;
-  margin: 0 auto 1rem;
-  animation: spin 1s linear infinite;
+.collapsible-section .section-content {
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  animation: slideDown 0.3s ease;
 }
 
-@keyframes spin {
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
   to {
-    transform: rotate(360deg);
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
-/* 教学班卡片网格 */
-.teaching-classes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+/* 单选按钮组 */
+.radio-group {
+  display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.teaching-class-card {
-  background: rgba(40, 40, 70, 0.6);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 1rem;
+.radio-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
-  position: relative;
 }
 
-.teaching-class-card:hover {
-  background: rgba(50, 50, 80, 0.7);
-  border-color: rgba(0, 212, 255, 0.3);
+.radio-label:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.teaching-class-card.selected {
-  background: rgba(0, 212, 255, 0.1);
-  border-color: #00d4ff;
-}
-
-.card-checkbox {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-}
-
-.card-checkbox input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
+.radio-label input[type="radio"] {
   cursor: pointer;
+  margin-top: 0.2rem;
   accent-color: #00d4ff;
 }
 
-.card-content {
-  padding-right: 2rem;
-}
-
-.card-title {
-  color: #ffffff;
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-}
-
-.card-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.info-item {
+.radio-label small {
+  margin-left: 0.5rem;
   color: #a0aec0;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  display: block;
+  margin-top: 0.25rem;
 }
 
-.card-config {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  align-items: center;
+/* 排课模式选择器 */
+.schedule-mode-selector {
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(30, 30, 50, 0.6);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.schedule-mode-selector > label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #ffffff;
+}
+
+.schedule-mode-selector .radio-group {
+  flex-direction: column;
   gap: 0.75rem;
 }
 
-.card-config label {
-  color: #a0aec0;
-  font-size: 0.9rem;
+.schedule-mode-selector .radio-label {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(0, 212, 255, 0.2);
 }
 
-.card-config input {
-  width: 80px;
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: #ffffff;
-  font-size: 0.9rem;
-  text-align: center;
-}
-
-.card-config input:focus {
-  outline: none;
-  border-color: #00d4ff;
+.schedule-mode-selector .radio-label:hover {
+  background: rgba(0, 212, 255, 0.05);
+  border-color: rgba(0, 212, 255, 0.4);
 }
 
 /* 操作按钮 */
@@ -874,173 +824,10 @@ init()
   animation: spin 0.8s linear infinite;
 }
 
-/* 统计卡片 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: rgba(30, 30, 50, 0.8);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.stat-card.success {
-  border-color: rgba(76, 175, 80, 0.3);
-  background: rgba(76, 175, 80, 0.1);
-}
-
-.stat-card.error {
-  border-color: rgba(244, 67, 54, 0.3);
-  background: rgba(244, 67, 54, 0.1);
-}
-
-.stat-card.warning {
-  border-color: rgba(255, 152, 0, 0.3);
-  background: rgba(255, 152, 0, 0.1);
-}
-
-.stat-icon {
-  font-size: 2rem;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.stat-label {
-  color: #a0aec0;
-  font-size: 0.9rem;
-}
-
-/* 状态标签 */
-.status-success {
-  color: #4caf50;
-}
-
-.status-warning {
-  color: #ff9800;
-}
-
-.status-error {
-  color: #f44336;
-}
-
-/* 冲突区域 */
-.conflicts-section {
-  background: rgba(255, 152, 0, 0.1);
-  border: 1px solid rgba(255, 152, 0, 0.3);
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.conflicts-section h3 {
-  color: #ff9800;
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-}
-
-.conflicts-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.conflict-item {
-  display: flex;
-  gap: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-.conflict-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.conflict-content h4 {
-  color: #ffffff;
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-.conflict-content p {
-  color: #a0aec0;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
-}
-
-.conflict-type {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background: rgba(255, 152, 0, 0.2);
-  border-radius: 4px;
-  color: #ff9800;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-/* 排课详情表格 */
-.schedules-section {
-  background: rgba(30, 30, 50, 0.8);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.schedules-section h3 {
-  color: #ffffff;
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-}
-
-.table-container {
-  overflow-x: auto;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table thead {
-  background: rgba(0, 212, 255, 0.1);
-  border-bottom: 2px solid rgba(0, 212, 255, 0.2);
-}
-
-.data-table th {
-  padding: 1rem;
-  text-align: left;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.data-table td {
-  padding: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  color: #e0e0e0;
-}
-
-.data-table tbody tr:hover {
-  background: rgba(0, 212, 255, 0.05);
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 成功状态 */
@@ -1093,14 +880,6 @@ init()
     padding: 1rem 2rem;
   }
 
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .teaching-classes-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  }
-
   .steps-indicator {
     display: none;
   }
@@ -1114,14 +893,6 @@ init()
 
   .content-title {
     font-size: 1.5rem;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .teaching-classes-grid {
-    grid-template-columns: 1fr;
   }
 
   .action-bar {
@@ -1140,6 +911,10 @@ init()
 
   .logo-text {
     font-size: 1rem;
+  }
+
+  .radio-group {
+    flex-direction: column;
   }
 }
 </style>

@@ -32,7 +32,12 @@
       "mcp__smart-schedule-coreV2__read_project_oas_4tuy7b",
       "mcp__smart-schedule-coreV2__refresh_project_oas_4tuy7b",
       "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_4tuy7b",
-      "Bash(true:*)"
+      "Bash(true:*)",
+      "mcp__smart-schedule-coreV2__read_project_oas_b01idz",
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_b01idz",
+      "mcp__smart-schedule-coreV2__read_project_oas_dxw7z9",
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_dxw7z9",
+      "Bash(timeout 30 npm run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

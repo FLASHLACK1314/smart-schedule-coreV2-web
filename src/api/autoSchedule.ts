@@ -1,5 +1,5 @@
 import request from './index'
-import type { AutoScheduleVO, AutoScheduleResult, ScheduleStatistics } from './types'
+import type { AutoScheduleVO, AutoScheduleResult, ScheduleStatistics, ScheduleItem } from './types'
 
 /**
  * 执行自动排课
@@ -15,12 +15,15 @@ export function executeAutoSchedule(data: AutoScheduleVO): Promise<AutoScheduleR
 
 /**
  * 保存排课方案为预览状态
+ * @param semester_uuid 学期UUID
+ * @param result 可选的排课结果，如果提供则保存该结果
  */
-export function saveSchedulePreview(semester_uuid: string): Promise<void> {
+export function saveSchedulePreview(semester_uuid: string, result?: AutoScheduleResult): Promise<void> {
   return request({
     url: '/v1/auto-schedule/save-preview',
     method: 'post',
     params: { semester_uuid },
+    data: result ? { result } : undefined,
   })
 }
 

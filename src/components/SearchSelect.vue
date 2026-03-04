@@ -4,7 +4,7 @@ import { useClickOutside } from '@/composables/useClickOutside'
 
 // Props 定义
 interface Props {
-  modelValue: string
+  modelValue: string | string[]
   placeholder?: string
   fetchAsync: (keyword: string) => Promise<SelectOption[]>
   disabled?: boolean
@@ -12,6 +12,7 @@ interface Props {
   debounceDelay?: number
   initialOption?: SelectOption | null
   loadOnFocus?: boolean // 是否在聚焦时自动加载数据，默认 false
+  multiple?: boolean // 是否支持多选
 }
 
 // 选项类型
@@ -28,17 +29,19 @@ const props = withDefaults(defineProps<Props>(), {
   debounceDelay: 500,
   initialOption: null,
   loadOnFocus: false,
+  multiple: false,
 })
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  'change': [option: SelectOption | null]
+  'update:modelValue': [value: string | string[]]
+  'change': [option: SelectOption | null | SelectOption[]]
 }>()
 
 // 响应式状态
 const searchKeyword = ref<string>('')
 const searchResults = ref<SelectOption[]>([])
 const selectedOption = ref<SelectOption | null>(null)
+const selectedOptions = ref<SelectOption[]>([]) // 多选时使用
 const loading = ref<boolean>(false)
 const isOpen = ref<boolean>(false)
 const inputRef = ref<HTMLInputElement>()
@@ -78,12 +81,19 @@ watch(searchKeyword, (newKeyword) => {
 // 监听 modelValue 变化，同步选中项显示
 watch(() => props.modelValue, (newValue) => {
   if (!newValue) {
-    selectedOption.value = null
+    if (props.multiple) {
+      selectedOptions.value = []
+    } else {
+      selectedOption.value = null
+    }
     searchKeyword.value = ''
-  } else if (!selectedOption.value && props.initialOption) {
-    // 如果有初始选项且当前没有选中项，使用初始选项
+  } else if (!props.multiple && !selectedOption.value && props.initialOption) {
+    // 单选时：如果有初始选项且当前没有选中项，使用初始选项
     selectedOption.value = props.initialOption
     searchKeyword.value = props.initialOption.label
+  } else if (props.multiple && Array.isArray(newValue)) {
+    // 多选时：需要从搜索结果或初始选项中匹配
+    // 这里暂时不做处理，因为多选的初始值需要外部传入选项对象
   }
 }, { immediate: true })
 
@@ -122,28 +132,60 @@ const handleFocus = async () => {
 
 // 处理选项点击
 const handleSelect = (option: SelectOption) => {
-  selectedOption.value = option
-  searchKeyword.value = option.label
-  isOpen.value = false
-  emit('update:modelValue', option.value)
-  emit('change', option)
+  if (props.multiple) {
+    // 多选：切换选项
+    const index = selectedOptions.value.findIndex(opt => opt.value === option.value)
+    if (index > -1) {
+      // 已选中，取消选择
+      selectedOptions.value.splice(index, 1)
+    } else {
+      // 未选中，添加选择
+      selectedOptions.value.push(option)
+    }
+    // 更新 modelValue 为值数组
+    const values = selectedOptions.value.map(opt => opt.value)
+    emit('update:modelValue', values)
+    emit('change', [...selectedOptions.value])
+    // 不关闭下拉框，允许多选
+  } else {
+    // 单选
+    selectedOption.value = option
+    searchKeyword.value = option.label
+    isOpen.value = false
+    emit('update:modelValue', option.value)
+    emit('change', option)
+  }
 }
 
 // 清空选择
 const handleClear = () => {
-  selectedOption.value = null
-  searchKeyword.value = ''
-  // 不清空搜索结果，保留下拉列表数据
-  emit('update:modelValue', '')
-  emit('change', null)
+  if (props.multiple) {
+    selectedOptions.value = []
+    emit('update:modelValue', [])
+    emit('change', [])
+  } else {
+    selectedOption.value = null
+    searchKeyword.value = ''
+    // 不清空搜索结果，保留下拉列表数据
+    emit('update:modelValue', '')
+    emit('change', null)
+  }
 }
 
-// 计算显示的文本
 const displayText = computed(() => {
-  if (selectedOption.value) {
-    return selectedOption.value.label
+  if (props.multiple) {
+    // 多选时显示已选项的标签
+    if (selectedOptions.value.length > 0) {
+      return selectedOptions.value.map(opt => opt.label).join(', ')
+    }
+    return ''
+  } else {
+    // 单选
+    if (selectedOption.value) {
+      return selectedOption.value.label
+    }
+    return searchKeyword.value
   }
-  return searchKeyword.value
 })
 
 // 检查是否为空
@@ -153,22 +195,49 @@ const isEmpty = computed(() => {
 </script>
 
 <template>
-  <div ref="containerRef" class="search-select" :class="{ 'is-disabled': disabled }">
+  <div ref="containerRef" class="search-select" :class="{ 'is-disabled': disabled, 'is-multiple': multiple }">
     <!-- 输入框 -->
     <div class="search-select-input-wrapper">
       <span class="search-icon">🔍</span>
+      
+      <!-- 多选模式：显示已选项标签 -->
+      <div v-if="multiple" class="search-select-tags">
+        <span
+          v-for="(option, index) in selectedOptions"
+          :key="index"
+          class="search-select-tag"
+        >
+          {{ option.label }}
+          <button
+            type="button"
+            class="tag-remove"
+            @click.stop="() => {
+              selectedOptions.splice(index, 1);
+              const values = selectedOptions.map(opt => opt.value);
+              emit('update:modelValue', values);
+              emit('change', [...selectedOptions]);
+            }"
+          >
+            ×
+          </button>
+        </span>
+      </div>
+      
+      <!-- 单选模式或输入框 -->
       <input
         ref="inputRef"
         v-model="searchKeyword"
         type="text"
         class="search-select-input"
-        :placeholder="placeholder"
+        :class="{ 'is-multiple-input': multiple }"
+        :placeholder="multiple ? (selectedOptions.length > 0 ? '' : placeholder) : placeholder"
         :disabled="disabled"
         @focus="handleFocus"
       />
+      
       <!-- 清空按钮 -->
       <button
-        v-if="clearable && selectedOption && !disabled"
+        v-if="clearable && ((selectedOption && !multiple) || (selectedOptions.length > 0 && multiple)) && !disabled"
         class="clear-button"
         @click.stop="handleClear"
         type="button"
@@ -207,7 +276,11 @@ const isEmpty = computed(() => {
           v-for="option in searchResults"
           :key="option.value"
           class="search-select-option"
-          :class="{ 'is-selected': option.value === modelValue }"
+          :class="{ 
+            'is-selected': multiple 
+              ? selectedOptions.some(opt => opt.value === option.value) 
+              : option.value === modelValue 
+          }"
           @click="handleSelect(option)"
         >
           {{ option.label }}
@@ -388,6 +461,59 @@ const isEmpty = computed(() => {
 .empty-icon {
   font-size: 1.5rem;
   opacity: 0.5;
+}
+
+/* 多选模式样式 */
+.search-select.is-multiple .search-select-input-wrapper {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+}
+
+.search-select-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.search-select-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  background: rgba(0, 212, 255, 0.2);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 16px;
+  color: #00d4ff;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.tag-remove {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+  border: none;
+  border-radius: 50%;
+  color: #00d4ff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tag-remove:hover {
+  background: rgba(244, 67, 54, 0.3);
+  color: #f44336;
+}
+
+.search-select-input.is-multiple-input {
+  flex: 1;
+  min-width: 100px;
 }
 
 /* 响应式设计 */

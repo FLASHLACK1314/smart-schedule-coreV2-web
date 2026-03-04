@@ -634,18 +634,62 @@ export interface SchedulePageQuery {
 // ========== 智能排课相关类型 ==========
 
 /**
+ * 排课模式
+ */
+export type ScheduleMode = 'TEACHING_CLASS' | 'ADMIN_CLASS'
+
+/**
+ * 教师选择策略
+ */
+export type TeacherSelectionStrategy = 'balanced' | 'random' | 'first'
+
+/**
+ * 课程-行政班级配置（行政班模式使用）
+ */
+export interface CourseClassConfig {
+  course_uuid: string
+  teacher_uuid?: string
+  class_uuids: string[]
+  weekly_sessions?: number
+  sections_per_session?: number
+  class_name_prefix?: string
+}
+
+/**
  * 执行排课请求（蛇形命名）
+ * 支持两种模式：
+ * - 教学班模式：使用 teaching_class_uuids
+ * - 行政班模式：使用 course_class_mapping 和 teacher_assignment
  */
 export interface AutoScheduleVO {
+  mode?: ScheduleMode                             // 排课模式，默认 TEACHING_CLASS
   semester_uuid: string                           // 学期UUID（必填）
-  teaching_class_uuids: string[]                  // 待排课的教学班UUID列表（必填）
+
+  // 教学班模式参数
+  teaching_class_uuids?: string[]                 // 待排课的教学班UUID列表（教学班模式必填）
   weekly_sessions_config?: Record<string, number> // 每周上课次数配置（可选）
-  classroom_uuids?: string[]                      // 可用教室UUID列表（可选）
+
+  // 行政班模式参数（新版 API）
+  course_class_mapping?: Record<string, string[]> // 课程UUID -> 行政班UUID列表的映射
+  teacher_assignment?: Record<string, string>     // 课程UUID -> 教师UUID的映射（可选）
+  auto_split_class?: boolean                      // 是否启用自动分班（行政班模式使用）
+  max_students_per_class?: number                 // 单班最大人数（行政班模式使用，默认60）
+  teacher_selection_strategy?: TeacherSelectionStrategy // 教师选择策略（默认balanced）
+
+  // 兼容旧版 API（保留向后兼容）
+  course_class_configs?: CourseClassConfig[]      // 课程-行政班级配置列表（旧版）
+
+  // 资源范围参数
+  building_uuids?: string[]                       // 可用教学楼UUID列表（可选）
+  classroom_type_uuids?: string[]                 // 可用教室类型UUID列表（可选）
+
+  // 算法参数
   population_size?: number                        // 种群大小（默认100）
   max_generations?: number                        // 迭代次数（默认500）
   crossover_rate?: number                         // 交叉概率（默认0.8）
   mutation_rate?: number                          // 变异概率（默认0.2）
   elite_size?: number                             // 精英保留数量（默认10）
+  schedule_mode?: 0 | 1                           // 排课模式：0-预览模式，1-正式模式（默认0）
 }
 
 /**
@@ -665,6 +709,46 @@ export interface CourseAppointment {
   section_end: number
   weeks_json: string         // JSON字符串数组
   status: number             // 0-预览/1-正式
+}
+
+/**
+ * 时间槽信息（API 返回的嵌套结构）
+ */
+export interface TimeSlotDTO {
+  day_of_week: number
+  section_start: number
+  section_end: number
+  weeks: number[]
+  unique_id?: string
+  total_hours?: number
+}
+
+/**
+ * 排课结果项（新版 API 返回的排课数据）
+ */
+export interface ScheduleItem {
+  teaching_class_uuid: string
+  teaching_class_name: string
+  course_uuid: string
+  course_name: string
+  course_total_hours?: number   // 课程总学时
+  teacher_uuid: string
+  teacher_name: string
+  classroom_uuid: string
+  classroom_name: string
+  classroom_capacity?: number   // 教室容量
+  classroom_type_uuid?: string  // 教室类型UUID
+  course_type_uuid?: string     // 课程类型UUID
+  class_uuids?: string[]        // 行政班UUID列表
+  total_students?: number       // 学生总数
+  time_slot: TimeSlotDTO        // 时间槽信息（嵌套对象）
+  // 以下字段用于兼容平铺结构
+  day_of_week?: number          // 1-7（兼容平铺结构）
+  section_start?: number
+  section_end?: number
+  weeks?: number[]              // 周次数组
+  credit_hours?: number         // 排课学时
+  status?: number               // 0-预览/1-正式
 }
 
 /**
@@ -700,12 +784,14 @@ export interface ScheduleStatistics {
  * 自动排课结果（蛇形命名）
  */
 export interface AutoScheduleResult {
+  is_success: boolean                        // 排课是否成功（兼容旧字段名）
+  success?: boolean                          // 排课是否成功（新字段名）
   semester_uuid: string
-  schedule_map: Record<string, CourseAppointment[]> // 教学班UUID -> 课程安排列表
-  fitness: number                          // 总体适应度分数
-  hard_conflicts: number                   // 硬约束冲突数量
-  soft_conflicts: number                   // 软约束冲突数量
-  unscheduled_teaching_classes: string[]   // 未完成排课的教学班列表
-  conflict_report: ConflictReport          // 冲突报告
-  statistics: ScheduleStatistics           // 排课统计信息
+  schedule_map: Record<string, ScheduleItem[]> // 教学班UUID -> 排课项列表（新版使用 ScheduleItem）
+  fitness: number                            // 总体适应度分数
+  hard_conflicts: number                     // 硬约束冲突数量
+  soft_conflicts: number                     // 软约束冲突数量
+  unscheduled_teaching_classes: string[]     // 未完成排课的教学班列表
+  conflict_report: ConflictReport            // 冲突报告
+  statistics: ScheduleStatistics             // 排课统计信息
 }
