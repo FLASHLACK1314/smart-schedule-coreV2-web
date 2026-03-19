@@ -2,13 +2,13 @@
  * API 类型定义
  */
 
-// 通用响应结构
+// 通用响应结构（驼峰命名，由拦截器转换）
 export interface BaseResponse<T> {
   output: 'Success' | 'OperationFailed'
   code: number
   message: string
   data: T
-  error_message?: string
+  errorMessage?: string
 }
 
 // 用户类型枚举
