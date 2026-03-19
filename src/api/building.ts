@@ -90,3 +90,23 @@ export function deleteBuilding(buildingUuid: string): Promise<void> {
     },
   })
 }
+
+/**
+ * 获取所有教学楼列表（自动分页）
+ * @returns 所有教学楼列表
+ */
+export async function getAllBuildings(): Promise<BuildingInfoDTO[]> {
+  const allRecords: BuildingInfoDTO[] = []
+  let page = 1
+  const size = 50
+  let hasMore = true
+
+  while (hasMore) {
+    const response = await getBuildingPage({ page, size })
+    allRecords.push(...response.records)
+    hasMore = response.records.length === size && allRecords.length < response.total
+    page++
+  }
+
+  return allRecords
+}

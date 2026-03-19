@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getClassroomPage, addClassroom, updateClassroom, deleteClassroom as deleteClassroomApi } from '@/api/classroom'
-import { getBuildingPage } from '@/api/building'
+import { getAllBuildings } from '@/api/building'
 import { getClassroomTypePage } from '@/api/classroomType'
 import type { ClassroomInfoDTO, BuildingInfoDTO, ClassroomTypeInfoDTO } from '@/api/types'
 import { useMessage } from '@/composables/useMessage'
@@ -53,11 +53,7 @@ const displayClassrooms = computed(() => {
 // 获取教学楼列表
 const fetchBuildings = async () => {
   try {
-    const response = await getBuildingPage({
-      page: 1,
-      size: 100,
-    })
-    buildings.value = response.records
+    buildings.value = await getAllBuildings()
   } catch (err) {
     console.error('获取教学楼列表失败:', err)
   }
@@ -227,7 +223,6 @@ onMounted(() => {
       <!-- 操作栏 -->
       <div class="action-bar">
         <select v-model="selectedBuildingUuid" @change="fetchClassrooms" class="building-filter">
-          <option value="">所有教学楼</option>
           <option v-for="building in buildings" :key="building.building_uuid" :value="building.building_uuid">
             {{ building.building_name }}
           </option>

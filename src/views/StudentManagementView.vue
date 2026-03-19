@@ -451,7 +451,6 @@ onMounted(async () => {
 
         <div class="filter-group">
           <select v-model="filterDepartment" class="filter-select" :disabled="departmentsLoading">
-            <option value="">全部学院</option>
             <option v-for="dept in departments" :key="dept.department_uuid" :value="dept.department_uuid">
               {{ dept.department_name }}
             </option>
