@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useMessage } from '@/composables/useMessage'
 import MessageToast from '@/components/MessageToast.vue'
+import DifyChatAssistant from '@/components/DifyChatAssistant.vue'
 
 // 全局消息提示
 const { messages, remove } = useMessage()
@@ -14,6 +15,7 @@ const { messages, remove } = useMessage()
     </keep-alive>
   </router-view>
   <MessageToast :messages="messages" @remove="remove" />
+  <DifyChatAssistant />
 </template>
 
 <style>

@@ -37,7 +37,14 @@
       "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_b01idz",
       "mcp__smart-schedule-coreV2__read_project_oas_dxw7z9",
       "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_dxw7z9",
-      "Bash(timeout 30 npm run:*)"
+      "Bash(timeout 30 npm run:*)",
+      "mcp__smart-schedule-coreV2__read_project_oas_nfjwhf",
+      "mcp__smart-schedule-coreV2__refresh_project_oas_nfjwhf",
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_nfjwhf",
+      "mcp__smart-schedule-coreV2__read_project_oas_24azzg",
+      "mcp__smart-schedule-coreV2__refresh_project_oas_24azzg",
+      "mcp__smart-schedule-coreV2__read_project_oas_ref_resources_24azzg",
+      "Bash(npm run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
