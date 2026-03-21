@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, nextTick, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { useMessage } from '@/composables/useMessage'
 import { sendMessageStream, type DifyMessageDTO } from '@/api/dify'
 
 const userStore = useUserStore()
+const { error: showError } = useMessage()
 
 // 状态
 const isOpen = ref(false)
@@ -109,41 +111,28 @@ const handleSend = async () => {
           lastStreamContent.value = streamingMessage.value // 保存最新内容
           nextTick(() => scrollToBottom())
         },
-        onDone: (data) => {
-          console.log('onDone 被调用, data.answer 长度:', data.answer?.length)
-          console.log('streamingMessage 长度:', streamingMessage.value.length)
-
+        onWorkflowFinished: (data) => {
           // 防止重复调用
           if (isMessageComplete.value) {
-            console.log('onDone 已处理，跳过重复调用')
             return
           }
           isMessageComplete.value = true
 
-          // 处理 null 值，生成临时 ID
-          const messageId = data.message_id || `temp-assistant-${Date.now()}`
-          const conversationId = data.conversation_id
+          currentConversationId.value = data.conversation_id
 
-          currentConversationId.value = conversationId
-          streamingMessageId.value = messageId
-
-          // 强制使用 done 事件的 answer（如果存在且非空）
+          // 使用 workflow_finished 的完整 answer（如果存在且非空）
           // 只有当 answer 为空时才使用流式累积内容作为兜底
           const finalContent = (data.answer && data.answer.trim())
             ? data.answer
             : streamingMessage.value || ''
 
-          console.log('最终内容来源:', (data.answer && data.answer.trim()) ? 'done.answer' : '流式累积')
-          console.log('最终内容前100字符:', finalContent.substring(0, 100) + '...')
-
           const assistantMessage: DifyMessageDTO = {
-            message_id: messageId,
-            conversation_id: conversationId || '',
+            message_id: `temp-assistant-${Date.now()}`,
+            conversation_id: data.conversation_id || '',
             content: finalContent,
             role: 'assistant',
             created_at: new Date().toISOString(),
           }
-          console.log('添加 assistant 消息, content 长度:', assistantMessage.content.length)
           messages.value.push(assistantMessage)
 
           // 清空流式状态
@@ -156,9 +145,8 @@ const handleSend = async () => {
           nextTick(() => scrollToBottom())
         },
         onStreamEnd: () => {
-          // 流结束的兜底处理：如果 onDone 没有被调用，强制完成消息
+          // 流结束的兜底处理：如果 onWorkflowFinished 没有被调用，强制完成消息
           if (!isMessageComplete.value && streamingMessage.value) {
-            console.log('流结束但 onDone 未触发，使用累积内容完成消息')
             isMessageComplete.value = true
 
             const messageId = `temp-assistant-${Date.now()}`
@@ -181,7 +169,6 @@ const handleSend = async () => {
             nextTick(() => scrollToBottom())
           } else if (!isMessageComplete.value) {
             // 没有任何内容，也要重置状态
-            console.log('流结束，无内容，重置状态')
             isMessageComplete.value = true
             isLoading.value = false
             streamingMessage.value = ''
@@ -189,7 +176,8 @@ const handleSend = async () => {
           }
         },
         onError: (error) => {
-          console.error('发送消息失败:', error)
+          // 显示错误提示给用户
+          showError('发送失败：' + error.message)
           // 移除用户消息
           messages.value.pop()
           // 恢复输入内容
@@ -205,7 +193,7 @@ const handleSend = async () => {
 
     abortStream.value = abort
   } catch (error: any) {
-    console.error('发送消息失败:', error)
+    showError('发送失败：' + (error.message || '未知错误'))
     // 移除用户消息
     messages.value.pop()
     // 恢复输入内容

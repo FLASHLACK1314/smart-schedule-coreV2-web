@@ -8,6 +8,7 @@ import request from './index'
 export interface DifyChatVO {
   query: string // 用户消息内容
   conversation_id?: string // 会话ID（可选，首次为空）
+  semester_uuid?: string // 学期UUID（可选，用于 MCP 工具调用时指定学期上下文）
 }
 
 /**
@@ -70,13 +71,21 @@ export interface SSEMessageEvent {
 }
 
 /**
- * SSE 消息完成事件 - 扁平结构
+ * SSE 工作流结束事件（替代原来的 done）
+ * 后端实际返回格式
  */
-export interface SSEDoneEvent {
-  event: 'done'
-  message_id: string
+export interface SSEWorkflowFinishedEvent {
+  event: 'workflow_finished'
   conversation_id: string
-  answer: string
+  data: {
+    status: string
+    outputs: {
+      answer: string
+      files: any[]
+    }
+    total_tokens: number
+    elapsed_time: number
+  }
 }
 
 /**
@@ -95,7 +104,7 @@ export type SSEEvent =
   | SSEWorkflowStartedEvent
   | SSENodeStartedEvent
   | SSEMessageEvent
-  | SSEDoneEvent
+  | SSEWorkflowFinishedEvent
   | SSEErrorEvent
 
 /**
@@ -108,9 +117,9 @@ export interface StreamCallbacks {
   onNodeStarted?: (event: SSENodeStartedEvent) => void
   /** 消息片段回调 - 接收到部分消息 */
   onMessage?: (text: string) => void
-  /** 消息完成回调 - message_id 和 conversation_id 可能为 null */
-  onDone?: (data: { message_id: string | null; conversation_id: string | null; answer: string }) => void
-  /** 流结束回调 - 无论是否收到 done 事件都会触发，用于兜底处理 */
+  /** 工作流完成回调 - 包含完整的 answer */
+  onWorkflowFinished?: (data: { conversation_id: string; answer: string; total_tokens?: number }) => void
+  /** 流结束回调 - 无论是否收到 workflow_finished 事件都会触发，用于兜底处理 */
   onStreamEnd?: () => void
   /** 错误回调 */
   onError?: (error: Error) => void
@@ -198,6 +207,9 @@ export const sendMessageStream = (
   params.append('query', data.query)
   if (data.conversation_id) {
     params.append('conversation_id', data.conversation_id)
+  }
+  if (data.semester_uuid) {
+    params.append('semester_uuid', data.semester_uuid)
   }
   const url = `${baseURL}/v1/dify/chat/message/stream?${params.toString()}`
 
@@ -310,21 +322,28 @@ function handleSSEEvent(eventType: string, data: any, callbacks: StreamCallbacks
       break
 
     case 'message':
-      console.log('SSE message 事件, answer 长度:', data.answer?.length, '前50字符:', data.answer?.substring(0, 50))
       callbacks.onMessage?.(data.answer || '')
       break
 
-    case 'done':
-      console.log('SSE done 事件, answer 长度:', data.answer?.length)
-      callbacks.onDone?.({
-        message_id: data.message_id,
-        conversation_id: data.conversation_id,
-        answer: data.answer || '',
+    case 'workflow_finished':
+      callbacks.onWorkflowFinished?.({
+        conversation_id: data.conversation_id || '',
+        answer: data.data?.outputs?.answer || '',
+        total_tokens: data.data?.total_tokens,
       })
       break
 
     case 'error':
       callbacks.onError?.(new Error(data.message || '未知错误'))
+      break
+
+    case 'ping':
+      // 心跳事件，忽略
+      break
+
+    case 'node_finished':
+    case 'message_end':
+      // 这些事件暂不处理，保留扩展性
       break
 
     default:
